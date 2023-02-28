@@ -1,13 +1,14 @@
 package utility;
 
-import command.Command;
-import command.CommandWithTicket;
 import ticket.TicketBuilder;
 import ticket.TicketType;
 import ticket.VenueType;
 
-import java.io.File;
-import java.io.IOException;
+import java.io.*;
+import java.net.ConnectException;
+import java.net.InetSocketAddress;
+import java.nio.ByteBuffer;
+import java.nio.channels.SocketChannel;
 import java.nio.file.AccessDeniedException;
 import java.nio.file.Paths;
 import java.util.*;
@@ -35,18 +36,24 @@ public class ConsoleAndFileParser {
      */
     private final Stack<String> fileNamesStack = new Stack<>();
     /**
-     * Поле Исполнитель {@link Executor}
-     */
-    private final Executor ex;
-    /**
      * Поле объекта, который пишет в консоль
      */
     private final ConsoleWriter cw;
     private final TicketBuilder tb = new TicketBuilder();
+    private SocketChannel sock;
 
-    public ConsoleAndFileParser(Executor ex, ConsoleWriter cw) {
-        this.ex = ex;
+    public ConsoleAndFileParser(ConsoleWriter cw) throws IOException {
         this.cw = cw;
+    }
+
+    /**
+     * Цикл считывания команд с помощью {@link ConsoleAndFileParser}. Цикл завершается, если {@link Executor#exit} == true или если введен символ конца ввода
+     */
+    public void readingCycle() throws IOException {
+        while (true) {
+            String[] command = read();
+            nextCommand(command);
+        }
     }
 
     /**
@@ -73,10 +80,14 @@ public class ConsoleAndFileParser {
      *
      * @return возвращает массив строк
      */
-    public String[] read() {
+    public String[] read() throws IOException {
         checkingScanner();
         cw.print(">>");
         return nextInput().split(" ");
+    }
+
+    public void exit() throws IOException {
+        System.exit(0);
     }
 
     /**
@@ -84,7 +95,7 @@ public class ConsoleAndFileParser {
      *
      * @return возвращает строку
      */
-    private String nextInput() {
+    private String nextInput() throws IOException {
         String str = "";
         try {
             str = in.nextLine().trim();
@@ -94,9 +105,9 @@ public class ConsoleAndFileParser {
         return str;
     }
 
-    private void emergencyExit() {
+    private void emergencyExit() throws IOException {
         cw.printIgnoringPrintStatus("Экстренный выход");
-//        ex.exit();
+        exit();
     }
 
     /**
@@ -136,16 +147,26 @@ public class ConsoleAndFileParser {
                     if (!enteringField("street")) return;
                     cw.println("Введите почтовый индекс: ");
                     if (!enteringField("zip")) return;
-                    if (command[0].equals("update"))
-                        ex.commandExecutionWithElement(new CommandWithTicket(command, tb.getTicket(Long.parseLong(command[1]))));
-                    else ex.commandExecutionWithElement(new CommandWithTicket(command, tb.getTicket()));
+//                    try {
+//                        ObjectOutputStream oos = new ObjectOutputStream(client.socket().getOutputStream());
+//                        if (command[0].equals("update"))
+//                            oos.writeObject(new Command(command, tb.getTicket(Long.parseLong(command[1]))));
+//                        else oos.writeObject(new Command(command, tb.getTicket()));
+//                        ObjectInputStream ois = new ObjectInputStream(client.socket().getInputStream());
+//                        Answer answer = (Answer) ois.readObject();
+//                        cw.println(answer.text());
+//                    } catch (ConnectException e) {
+//                        cw.printIgnoringPrintStatus("Сервер не отвечает");
+//                        if (cw.getInputStatus() != 0) return;
+//                    } catch (ClassNotFoundException e) {
+//                        throw new RuntimeException(e);
+//                    }
                     break;
                 case ("info"):
                 case ("show"):
                 case ("remove_by_id"):
                 case ("remove_at"):
                 case ("clear"):
-                case ("save"):
                 case ("remove_first"):
                 case ("min_by_venue"):
                 case ("filter_contains_name"):
@@ -153,7 +174,30 @@ public class ConsoleAndFileParser {
                 case ("filter_by_price"):
                 case ("count_greater_than_type"):
                 case ("print_field_ascending_type"):
-                    ex.commandExecution(new Command(command));
+                    try {
+                        sock = SocketChannel.open(new InetSocketAddress("localhost", 5454));
+                        sock.configureBlocking(false);
+                        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                        ObjectOutputStream oos = new ObjectOutputStream(baos);
+                        oos.writeObject(new Command(new String[]{"show", ""}));
+                        oos.close();
+                        byte[] arr = baos.toByteArray();
+                        ByteBuffer buf = ByteBuffer.wrap(arr);
+                        sock.write(buf);
+                        buf.clear();
+                        sock.read(buf);
+                        ObjectInputStream ois = new ObjectInputStream(new ByteArrayInputStream(buf.array()));
+                        Answer answer = (Answer) ois.readObject();
+                        cw.printIgnoringPrintStatus(answer.text());
+                        ois.close();
+                    } catch (ConnectException e) {
+                        cw.printIgnoringPrintStatus("Сервер не отвечает");
+                        if (cw.getInputStatus() != 0) return;
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    } catch (ClassNotFoundException e) {
+                        throw new RuntimeException(e);
+                    }
                     break;
                 case ("help"):
                     cw.printIgnoringPrintStatus("""
@@ -164,7 +208,6 @@ public class ConsoleAndFileParser {
                             update id {element}: обновить значение элемента коллекции, id которого равен заданному
                             remove_by_id id: удалить элемент из коллекции по его id
                             clear: очистить коллекцию
-                            save: сохранить коллекцию в файл
                             execute_script file_name: считать и исполнить скрипт из указанного файла. В скрипте содержатся команды в таком же виде, в котором их вводит пользователь в интерактивном режиме.
                             exit: завершить программу (без сохранения в файл)
                             remove_first: удалить первый элемент из коллекции
@@ -192,7 +235,7 @@ public class ConsoleAndFileParser {
                     in = new Scanner(Paths.get(command[1]));
                     break;
                 case ("exit"):
-//                    ex.exit();
+                    exit();
                     break;
                 default:
                     cw.println("Введена неверная команда. Для просмотра справки по доступным командам введите команду help");
@@ -214,10 +257,10 @@ public class ConsoleAndFileParser {
             case ("remove_by_id"):
                 try {
                     long id = Long.parseLong(command[1]);
-                    if (!ex.validId(id)) {
-                        cw.println("Неверный id");
-                        return false;
-                    }
+//                    if (!ex.validId(id)) {
+//                        cw.println("Неверный id");
+//                        return false;
+//                    }
                 } catch (NumberFormatException e) {
                     cw.println("Неверный формат id");
                     return false;
@@ -298,7 +341,7 @@ public class ConsoleAndFileParser {
         return true;
     }
 
-    public boolean enteringField(String command) {
+    public boolean enteringField(String command) throws IOException {
         while (true) {
             String status = switch (command) {
                 case ("name") -> tb.setName(nextInput().trim());

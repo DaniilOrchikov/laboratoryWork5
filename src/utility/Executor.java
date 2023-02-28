@@ -1,15 +1,17 @@
 package utility;
 
-import command.Command;
-import command.CommandWithTicket;
 import ticket.Ticket;
 import ticket.TicketType;
-import ticket.VenueType;
 
-import java.io.IOException;
-import java.time.format.DateTimeParseException;
-import java.util.InputMismatchException;
-import java.util.NoSuchElementException;
+import java.io.*;
+import java.net.InetSocketAddress;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.nio.channels.SelectionKey;
+import java.nio.channels.Selector;
+import java.nio.channels.ServerSocketChannel;
+import java.nio.channels.SocketChannel;
+import java.util.*;
 
 /**
  * Класс исполняющий команды, которые требуют обратиться к коллекции ({@link TicketVector}), управляющий работой {@link ConsoleAndFileParser} и {@link CSVReaderAndWriter}.
@@ -23,16 +25,50 @@ public class Executor {
     /**
      * Поле {@link ConsoleAndFileParser}
      */
-    private ConsoleAndFileParser cp;
     /**
      * Поле {@link CSVReaderAndWriter}
      */
     private final CSVReaderAndWriter csvRW;
     private final ConsoleWriter cw;
+    private ServerSocket serv;
 
-    public Executor(CSVReaderAndWriter csvRW, ConsoleWriter cw) {
+
+    public Executor(CSVReaderAndWriter csvRW, ConsoleWriter cw) throws IOException {
         this.csvRW = csvRW;
         this.cw = cw;
+        serv = new ServerSocket(5454);
+    }
+
+    public void acceptingConnections() throws IOException, ClassNotFoundException {
+        while (true) {
+            Socket sock = serv.accept();
+            ObjectInputStream ois = new ObjectInputStream(sock.getInputStream());
+            Command command = (Command) ois.readObject();
+            Answer answer;
+            if (command.hasTicket) answer = commandExecutionWithElement(command);
+            else answer = commandExecution(command);
+            ObjectOutputStream oos = new ObjectOutputStream(sock.getOutputStream());
+            oos.writeObject(answer);
+        }
+    }
+
+    private void answer(SelectionKey key)
+            throws IOException, ClassNotFoundException {
+        SocketChannel client = (SocketChannel) key.channel();
+        ObjectInputStream ois = new ObjectInputStream(client.socket().getInputStream());
+        Command command = (Command) ois.readObject();
+        Answer answer;
+        if (command.hasTicket) answer = commandExecutionWithElement(command);
+        else answer = commandExecution(command);
+        ObjectOutputStream oos = new ObjectOutputStream(client.socket().getOutputStream());
+        oos.writeObject(answer);
+    }
+
+    private void register(Selector selector, ServerSocketChannel serverSocket)
+            throws IOException {
+        SocketChannel client = serverSocket.accept();
+        client.configureBlocking(false);
+        client.register(selector, SelectionKey.OP_READ);
     }
 
     /**
@@ -54,10 +90,6 @@ public class Executor {
             cw.println("Объектов не добавлено по причине несоответствия структуре - " + invalidTicket);
     }
 
-    public void setConsoleReader(ConsoleAndFileParser cr) {
-        this.cp = cr;
-    }
-
 //    /**
 //     * Мгновенный выход из программы
 //     */
@@ -71,68 +103,62 @@ public class Executor {
      *
      * @param command массив строк
      */
-    public void commandExecution(Command command) {
+    public Answer commandExecution(Command command) {
         switch (command.getCommand()[0]) {
             case ("show"):
                 StringBuilder str = new StringBuilder();
                 tv.getAll().stream().forEach(t -> str.append(t).append("\n"));
-                cw.printIgnoringPrintStatus(str.toString());
-                break;
+                return new Answer(str.toString());
             case ("clear"):
                 tv.clear();
                 cw.println("Коллекция очищена");
-                break;
+                return new Answer("Коллекция очищена");
             case ("remove_first"):
                 if (tv.remove(0))
-                    cw.println("Первый элемент удален");
+                    return new Answer("Первый элемент удален");
                 else
-                    cw.println("Массив пустой");
-                break;
+                    return new Answer("Массив пустой");
             case ("remove_at"):
                 if (tv.remove(Integer.parseInt(command.getCommand()[1])))
-                    cw.println("Элемент под индексом " + command.getCommand()[1] + " удален");
+                    return new Answer("Элемент под индексом " + command.getCommand()[1] + " удален");
                 else
-                    cw.println("Индекс выходит за границы массива");
-                break;
+                    return new Answer("Индекс выходит за границы массива");
             case ("remove_by_id"):
                 long id = Long.parseLong(command.getCommand()[1]);
-                if (!tv.validId(id)) {
-                    cw.println("Неверный id");
-                    return;
-                }
+                if (!tv.validId(id))
+                    return new Answer("Неверный id");
                 tv.removeById(id);
-                cw.println(String.format("Элемент с id %s удален", id));
-                break;
+                return new Answer(String.format("Элемент с id %s удален", id));
             case ("min_by_venue"):
-                cw.printIgnoringPrintStatus(tv.getMinByVenue());
-                break;
+                return new Answer(tv.getMinByVenue());
             case ("filter_contains_name"):
+                StringBuilder sb = new StringBuilder();
                 String name;
                 if (command.getCommand().length > 1) name = command.getCommand()[1];
                 else name = "";
-                for (Ticket t : tv.filterContainsName(name)) cw.printIgnoringPrintStatus(t.toString());
-                break;
+                for (Ticket t : tv.filterContainsName(name)) sb.append(t.toString());
+                return new Answer(sb.toString());
             case ("filter_less_than_price"):
+                sb = new StringBuilder();
                 int price = Integer.parseInt(command.getCommand()[1]);
-                for (Ticket t : tv.filterLessThanPrice(price)) cw.printIgnoringPrintStatus(t.toString());
-                break;
+                for (Ticket t : tv.filterLessThanPrice(price)) sb.append(t.toString());
+                return new Answer(sb.toString());
             case ("filter_by_price"):
+                sb = new StringBuilder();
                 price = Integer.parseInt(command.getCommand()[1]);
                 for (Ticket t : tv.filterByPrice(price)) cw.printIgnoringPrintStatus(t.toString());
-                break;
+                return new Answer(sb.toString());
             case ("save"):
-                if (csvRW.writeToCSV(tv.getAll())) cw.println("Сохранение прошло успешно");
-                else cw.println("Не удалось сохранить данные в связи с ошибкой записи в файл");
-                break;
+                if (csvRW.writeToCSV(tv.getAll())) return new Answer("Сохранение прошло успешно");
+                else return new Answer("Не удалось сохранить данные в связи с ошибкой записи в файл");
             case ("info"):
-                cw.printIgnoringPrintStatus(tv.getInfo());
-                break;
+                return new Answer(tv.getInfo());
             case ("count_greater_than_type"):
-                cw.printIgnoringPrintStatus(String.valueOf(tv.getCountGreaterThanType(TicketType.valueOf(command.getCommand()[1]))));
-                break;
+                return new Answer(String.valueOf(tv.getCountGreaterThanType(TicketType.valueOf(command.getCommand()[1]))));
             case ("print_field_ascending_type"):
-                cw.printIgnoringPrintStatus(tv.getFieldAscendingType());
+                return new Answer(tv.getFieldAscendingType());
         }
+        return new Answer("error");
     }
 
     /**
@@ -142,40 +168,27 @@ public class Executor {
      *
      * @param command массив строк
      */
-    public void commandExecutionWithElement(CommandWithTicket command) {
+    public Answer commandExecutionWithElement(Command command) {
         switch (command.getCommand()[0]) {
-            case ("add"):;
-                if (tv.add(command.getTicket())) cw.println("Объект добавлен");
-                else cw.println("Объект не добавлен. Неоригинальный id");
-                break;
+            case ("add"):
+                if (tv.add(command.getTicket())) return new Answer("Объект добавлен");
+                else return new Answer("Объект не добавлен. Неоригинальный id");
             case ("update"):
                 long id = Long.parseLong(command.getCommand()[1]);
                 tv.update(command.getTicket(), id);
-                cw.println("Объект обновлен");
-                break;
+                return new Answer("Объект обновлен");
             case ("add_if_max"):
-                if (tv.addIfMax(command.getTicket())) cw.println("Объект добавлен");
-                else cw.println("Объект не добавлен");
-                break;
+                if (tv.addIfMax(command.getTicket())) return new Answer("Объект добавлен");
+                else return new Answer("Объект не добавлен");
             case ("add_if_min"):
-                if (tv.addIfMin(command.getTicket())) cw.println("Объект добавлен");
-                else cw.println("Объект не добавлен");
-                break;
+                if (tv.addIfMin(command.getTicket())) return new Answer("Объект добавлен");
+                else return new Answer("Объект не добавлен");
             case ("remove_lower"):
-                cw.println("Удалено " + tv.removeLower(command.getTicket()) + " элементов");
-                break;
+                return new Answer("Удалено " + tv.removeLower(command.getTicket()) + " элементов");
         }
+        return new Answer("error");
     }
 
-    /**
-     * Цикл считывания команд с помощью {@link ConsoleAndFileParser}. Цикл завершается, если {@link Executor#exit} == true или если введен символ конца ввода
-     */
-    public void read() throws IOException {
-        while (true) {
-            String[] command = cp.read();
-            cp.nextCommand(command);
-        }
-    }
 
     /**
      * @see TicketVector#validId
