@@ -10,6 +10,7 @@ public class Main {
             CSVReaderAndWriter csvRW = new CSVReaderAndWriter();
             if (args.length > 0)
                 csvRW.setFile(args[0]);
+            csvRW.setFile("data.csv");
             Executor ex = new Executor(csvRW);
             ConsoleAndFileParser cr = new ConsoleAndFileParser(ex);
             ex.setConsoleReader(cr);

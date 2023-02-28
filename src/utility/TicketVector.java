@@ -79,8 +79,8 @@ public class TicketVector {
      * @return возврящает true если удалось добавить объект, false - если нет
      */
     public boolean add(Ticket ticket) {
-        for (Ticket t : tv)
-            if (t.getId() == ticket.getId() || t.getVenue().getId() == ticket.getVenue().getId()) return false;
+        if (tv.stream().anyMatch(t -> (t.getId() == ticket.getId() || t.getVenue().getId() == ticket.getVenue().getId())))
+            return false;
         tv.add(ticket);
         length++;
         if (ticket.getId() >= id) id = ticket.getId();
@@ -120,12 +120,9 @@ public class TicketVector {
      * @param id     id объекта, который надо обновить. Предполагается, что id проверенно на корректность (в коллекции существует элемент с таким id) {@link TicketVector#validId}
      */
     public void update(Ticket ticket, long id) {
-        for (Ticket t : tv) {
-            if (t.getId() == id) {
-                tv.remove(t);
-                break;
-            }
-        }
+        tv.stream().forEach(ticket1 -> {
+            if (ticket1.getId() == id) tv.remove(ticket1);
+        });
         length--;
         add(ticket);
     }
@@ -159,13 +156,8 @@ public class TicketVector {
      */
     public int removeLower(Ticket ticket) {
         int v = 0;
-        ArrayList<Ticket> delTickets = new ArrayList<>();
-        for (Ticket t : tv)
-            if (ticket.compareTo(t) > 0) {
-                delTickets.add(t);
-                v++;
-            }
-        length -= v;
+        List<Ticket> delTickets = tv.stream().filter(t -> ticket.compareTo(t) > 0).toList();
+        length -= delTickets.size();
         tv.removeAll(delTickets);
         return v;
     }
@@ -176,7 +168,7 @@ public class TicketVector {
      */
     public String print() {
         StringBuilder str = new StringBuilder();
-        for (Ticket t:tv) str.append(t).append("\n");
+        tv.stream().forEach(t -> str.append(t).append("\n"));
         return str.toString();
     }
 
@@ -193,26 +185,19 @@ public class TicketVector {
      * @param id id элемента, который нужно удалить. Предполагается, что id проверенно на корректность (в коллекции существует элемент с таким id) {@link TicketVector#validId}
      */
     public void removeById(long id) {
-        for (Ticket t : tv) {
+        tv.stream().forEach(t -> {
             if (t.getId() == id) {
                 tv.remove(t);
                 length--;
-                return;
             }
-        }
+        });
     }
 
     /**
      * @return возвращает минимальный элемент коллекции в строковом представлении. Сравнение ведется по полю venue {@link Venue#compareTo}
      */
     public String getMinByVenue() {
-        Ticket mt = tv.get(0);
-        for (Ticket t : tv) {
-            if (t.getVenue().compareTo(mt.getVenue()) < 0) {
-                mt = t;
-            }
-        }
-        return mt.toString();
+        return tv.stream().min(Comparator.comparing(Ticket::getVenue)).toString();
     }
 
     /**
@@ -220,10 +205,7 @@ public class TicketVector {
      * @return возвращает элементы, значение поля name которых содержит заданную подстроку
      */
     public Vector<Ticket> filterContainsName(String str) {
-        Vector<Ticket> ticketArrayList = new Vector<>();
-        for (Ticket t : tv)
-            if (t.getName().contains(str)) ticketArrayList.add(t);
-        return ticketArrayList;
+        return (Vector<Ticket>) tv.stream().filter(t -> t.getName().contains(str)).toList();
     }
 
     /**
@@ -231,10 +213,7 @@ public class TicketVector {
      * @return возвращает элементы, значение поля price которых меньше заданного
      */
     public Vector<Ticket> filterLessThanPrice(int price) {
-        Vector<Ticket> ticketArrayList = new Vector<>();
-        for (Ticket t : tv)
-            if (t.getPrice() < price) ticketArrayList.add(t);
-        return ticketArrayList;
+        return (Vector<Ticket>) tv.stream().filter(t -> t.getPrice() < price).toList();
     }
 
     /**
@@ -242,10 +221,7 @@ public class TicketVector {
      * @return возвращает элементы, значение поля price которых равно заданному
      */
     public Vector<Ticket> filterByPrice(int price) {
-        Vector<Ticket> ticketArrayList = new Vector<>();
-        for (Ticket t : tv)
-            if (t.getPrice() == price) ticketArrayList.add(t);
-        return ticketArrayList;
+        return (Vector<Ticket>) tv.stream().filter(t -> t.getPrice() == price).toList();
     }
 
     /**
@@ -253,11 +229,7 @@ public class TicketVector {
      */
     public String getFieldAscendingType() {
         StringBuilder str = new StringBuilder();
-        Vector<Ticket> stv = new Vector<>(tv);
-        stv.sort((t1, t2) -> t2.getType().compareTo(t1.getType()));
-        for (Ticket t : stv) {
-            str.append(String.format("id:%s - type:%s\n", t.getId(), t.getType()));
-        }
+        tv.stream().sorted((t1, t2) -> t2.getType().compareTo(t1.getType())).forEach(t -> str.append(String.format("id:%s - type:%s\n", t.getId(), t.getType())));
         return str.toString();
     }
 
@@ -265,11 +237,8 @@ public class TicketVector {
      * @param type тип билета {@link TicketType}
      * @return возвращает количество элементов коллекции, тип которых превышает переданный
      */
-    public int getCountGreaterThanType(TicketType type) {
-        int v = 0;
-        for (Ticket t : tv)
-            if (type.compareTo(t.getType()) > 0) v++;
-        return v;
+    public long getCountGreaterThanType(TicketType type) {
+        return tv.stream().filter(t -> type.compareTo(t.getType()) > 0).count();
     }
 
     /**
@@ -277,10 +246,7 @@ public class TicketVector {
      * Если коллекция пуста вернет null
      */
     private Ticket maxTicket() {
-        if (tv.isEmpty()) return null;
-        Ticket[] ta = tv.toArray(new Ticket[0]);
-        Arrays.sort(ta);
-        return ta[(int) length - 1];
+        return tv.stream().max(Ticket::compareTo).orElse(null);
     }
 
     /**
@@ -288,10 +254,7 @@ public class TicketVector {
      * Если коллекция пуста вернет null
      */
     private Ticket minTicket() {
-        if (tv.isEmpty()) return null;
-        Ticket[] ta = tv.toArray(new Ticket[0]);
-        Arrays.sort(ta);
-        return ta[0];
+        return tv.stream().min(Ticket::compareTo).orElse(null);
     }
 
     /**
@@ -308,8 +271,6 @@ public class TicketVector {
      * @return возвращает true, если в коллекции есть элемент с указанным id, false - если нет
      */
     public boolean validId(long id) {
-        for (Ticket t : tv)
-            if (t.getId() == id) return true;
-        return false;
+        return tv.stream().anyMatch(t -> t.getId() == id);
     }
 }

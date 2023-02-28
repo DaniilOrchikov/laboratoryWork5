@@ -5,13 +5,11 @@ import ticket.*;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.nio.file.AccessDeniedException;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.InputMismatchException;
 import java.util.NoSuchElementException;
-import java.util.Objects;
 import java.util.Scanner;
 
 /**
@@ -75,8 +73,8 @@ public class CSVReaderAndWriter {
      * @return возвращает объект класса {@link Ticket}
      */
     private Ticket parseCSVLine(String line) {
-        Scanner scanner = new Scanner(line);
-        scanner.useDelimiter("\\s*" + separator + "\\s*");
+        Scanner scanner = new Scanner(line.trim());
+        scanner.useDelimiter(separator);
         long id = scanner.nextLong();
         String name = scanner.next();
         if (name.equals("")) throw new InputMismatchException();
