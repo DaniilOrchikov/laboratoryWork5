@@ -1,6 +1,8 @@
 package utility;
 
-import ticket.Ticket;
+import command.Command;
+import command.CommandWithTicket;
+import ticket.TicketBuilder;
 import ticket.TicketType;
 import ticket.VenueType;
 
@@ -37,33 +39,29 @@ public class ConsoleAndFileParser {
      */
     private final Executor ex;
     /**
-     * Поле статуса ввода
-     * 0 - стандартный ввод
-     * 1 - ввод из файла
+     * Поле объекта, который пишет в консоль
      */
-    private int inputStatus = 0;
+    private final ConsoleWriter cw;
+    private final TicketBuilder tb = new TicketBuilder();
 
-    public ConsoleAndFileParser(Executor ex) {
+    public ConsoleAndFileParser(Executor ex, ConsoleWriter cw) {
         this.ex = ex;
-    }
-
-    public void setInputStatus(int status) {
-        inputStatus = status;
+        this.cw = cw;
     }
 
     /**
      * Проверяет не закончился ли считываемый файл. Если да - достает следующий сканер из {@link ConsoleAndFileParser#scannerStack}.
-     * Если из стека достали последний сканер (ввод с консоли) устанавливает {@link ConsoleAndFileParser#inputStatus} 0
+     * Если из стека достали последний сканер (ввод с консоли) устанавливает {@link ConsoleWriter#inputStatus} 0
      */
     private void checkingScanner() {
         if (scannerStack.empty())
-            setInputStatus(0);
-        if (inputStatus == 1 || inputStatus == 2) {
+            cw.setInputStatus(0);
+        if (cw.getInputStatus() == 1 || cw.getInputStatus() == 2) {
             while (!in.hasNext()) {
                 in = scannerStack.pop();
                 fileNamesStack.pop();
                 if (scannerStack.empty()) {
-                    setInputStatus(0);
+                    cw.setInputStatus(0);
                     break;
                 }
             }
@@ -77,7 +75,7 @@ public class ConsoleAndFileParser {
      */
     public String[] read() {
         checkingScanner();
-        print(">>");
+        cw.print(">>");
         return nextInput().split(" ");
     }
 
@@ -96,153 +94,17 @@ public class ConsoleAndFileParser {
         return str;
     }
 
-    /**
-     * При условии, что {@link ConsoleAndFileParser#inputStatus} != 1 печатает переданную строку с помощью System.out.println(String)
-     *
-     * @param str строка, которую необходимо напечатать
-     */
-    public void println(String str) {
-        if (inputStatus != 1) System.out.println(str);
-    }
-
-    /**
-     * При условии, что {@link ConsoleAndFileParser#inputStatus} != 1 печатает переданную строку с помощью System.out.print(String)
-     *
-     * @param str строка, которую необходимо напечатать
-     */
-    public void print(String str) {
-        if (inputStatus != 1) System.out.print(str);
-    }
-
-    /**
-     * Печатает переданную строку с помощью System.out.println(String)
-     *
-     * @param str строка, которую необходимо напечатать
-     */
-    public void printIgnoringPrintStatus(String str) {
-        System.out.println(str);
-    }
-
-    /**
-     * Проверяет, что строка соответствует одному из значений {@link TicketType}
-     *
-     * @param str строка
-     * @return возвращает true если соответствует, false - если нет
-     */
-    private boolean validTicketType(String str) {
-        for (TicketType c : TicketType.values()) {
-            if (c.name().equals(str)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     private void emergencyExit() {
-        printIgnoringPrintStatus("Экстренный выход");
-        ex.exit();
-    }
-
-    /**
-     * Проверяет, что строка соответствует одному из значений {@link VenueType}
-     *
-     * @param str строка
-     * @return возвращает true если соответствует, false - если нет
-     */
-    private boolean validVenueType(String str) {
-        for (VenueType c : VenueType.values()) {
-            if (c.name().equals(str)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /**
-     * Если при создании объекта класса {@link Ticket} были переданы некорректные параметры можно пересоздать его с помощью этого метода.
-     * Он автоматически заполнит корректно введенные поля и попросит ввести остальные.
-     * Работает только при вводе с консоли. При вводе из файла происходит выход из файла.
-     *
-     * @param command введенная команда
-     * @param okList  массив содержащий 5 значений типа boolean, соответствующих полям <b>name</b>, <b>price</b>, <b>capacity</b>, <b>street</b>, <b>zipCode</b>. Если значение true - поле введено корректно, если false - поле нужно пересоздать
-     */
-    public void recreatingObject(String[] command, boolean[] okList, String name, int x, int y, Integer price, TicketType type, Long capacity, VenueType venueType, String street, String zipCode) {
-        if (inputStatus != 0) {
-            printIgnoringPrintStatus("В файле " + fileNamesStack.peek() + " введены неверные данные для создания объекта");
-            fileNamesStack.pop();
-            in = scannerStack.pop();
-            return;
-        } else
-            println("Некоторые поля некорректны. Хотите пересоздать объект? Все корректно введенные поля будут заполнены автоматически.\nДа - Y, нет - N");
-        if (!nextInput().equalsIgnoreCase("Y")) return;
-        if (!okList[0]) {
-            print("Введите имя: ");
-            name = nextInput();
-        } else println("Введите имя: " + name);
-        println("Введите первую координату: " + x);
-        println("Введите вторую координату: " + y);
-        String str;
-        if (!okList[1]) {
-            while (true) {
-                print("Введите стоимость: ");
-                try {
-                    str = nextInput();
-                    if (str.equals("")) price = null;
-                    else price = Integer.parseInt(str);
-                } catch (NumberFormatException e) {
-                    println("Неверный формат ввода. Ожидалось целое число");
-                    continue;
-                }
-                break;
-            }
-        } else println("Введите стоимость: " + price);
-        println("Введите тип билета " + Arrays.toString(TicketType.values()) + ": " + type.toString());
-        if (!okList[2]) {
-            while (true) {
-                print("Введите вместимость: ");
-                try {
-                    str = nextInput();
-                    if (str.equals("")) capacity = null;
-                    else capacity = Long.parseLong(str);
-                } catch (NumberFormatException e) {
-                    println("Неверный формат ввода. Ожидалось целое число");
-                    continue;
-                }
-                break;
-            }
-        } else println("Введите вместимость: " + capacity);
-        println("Введите тип места назначения " + Arrays.toString(VenueType.values()) + ": " + venueType);
-        if (!okList[3]) {
-            print("Введите название улицы: ");
-            street = nextInput();
-        } else println("Введите название улицы: " + street);
-        if (!okList[4]) {
-            print("Введите почтовый индекс: ");
-            zipCode = nextInput();
-        } else println("Введите почтовый индекс: " + zipCode);
-        ex.commandExecutionWithElement(command, name, x, y, price, type, capacity, venueType, street, zipCode);
+        cw.printIgnoringPrintStatus("Экстренный выход");
+//        ex.exit();
     }
 
     /**
      * Выборка команды.
      * Если команда не требует обращения к коллекции - исполнение команды.
      * Если команда не требует ввод объекта - команда передается Исполнителю {@link Executor}({@link Executor#commandExecution}).
-     * Если команда требует ввода объекта - просит ввести поля и проверяет введенные данные на соответствие типу данных по схеме:<br>
-     * 1 Если требуется ввести числовые данные<br>
-     * 1.1 Считывает вводимые данные<br>
-     * 1.2 Пытается преобразовать введенные данные в нужный тип<br>
-     * 1.3 Если удалось - переход к введению следующего поля
-     * 1.4 Если не удалось - проверяет, откуда производился ввод<br>
-     * 1.5 Если ввод из файла - выход из файла
-     * 1.6 Иначе переходит к шагу 1.1<br>
-     * 2 Если требуется ввести строку - считывание строки<br>
-     * 3 Если требуется ввести тип<br>
-     * 3.1 Считывает вводимые данные<br>
-     * 3.2 С помощью методов {@link ConsoleAndFileParser#validVenueType} и {@link ConsoleAndFileParser#validTicketType} проверяет соответствие введенной строки одному из типов<br>
-     * 3.3 Если найдено соответствие - переход к введению следующего поля
-     * 3.4 Если ввод из файла - выход из файла
-     * 3.5 Иначе переходит к шагу 3.1<br>
-     * Далее передает данные и команду Исполнителю {@link Executor}({@link Executor#commandExecutionWithElement})
+     * Если команда требует ввода объекта - просит ввести поля и создает объект с помощью {@link TicketBuilder}
+     * Далее передает данные и команду {@link Executor}({@link Executor#commandExecutionWithElement})
      *
      * @param command массив строк (команда, которую необходимо исполнить и, при необходимости, параметры)
      */
@@ -255,114 +117,29 @@ public class ConsoleAndFileParser {
                 case ("add_if_min"):
                 case ("add"):
                 case ("remove_lower"):
-                    print("Введите имя: ");
-                    String name = nextInput();
-                    if (name.equals("")) name = null;
-                    int x;
-                    while (true) {
-                        print("Введите первую координату: ");
-                        try {
-                            x = Integer.parseInt(nextInput());
-                        } catch (NumberFormatException e) {
-                            if (inputStatus == 1) {
-                                printIgnoringPrintStatus("В файле " + fileNamesStack.peek() + " введены неверные данные для создания объекта");
-                                fileNamesStack.pop();
-                                in = scannerStack.pop();
-                                return;
-                            }
-                            println("Неверный формат ввода. Ожидалось целое число");
-                            continue;
-                        }
-                        break;
-                    }
-                    int y;
-                    while (true) {
-                        print("Введите вторую координату: ");
-                        try {
-                            y = Integer.parseInt(nextInput());
-                        } catch (NumberFormatException e) {
-                            if (inputStatus == 1) {
-                                printIgnoringPrintStatus("В файле " + fileNamesStack.peek() + " введены неверные данные для создания объекта");
-                                fileNamesStack.pop();
-                                in = scannerStack.pop();
-                                return;
-                            }
-                            println("Неверный формат ввода. Ожидалось целое число");
-                            continue;
-                        }
-                        break;
-                    }
-                    String str;
-                    Integer price;
-                    while (true) {
-                        print("Введите стоимость: ");
-                        try {
-                            str = nextInput();
-                            if (str.equals("")) price = null;
-                            else price = Integer.parseInt(str);
-                        } catch (NumberFormatException e) {
-                            if (inputStatus == 1) {
-                                printIgnoringPrintStatus("В файле " + fileNamesStack.peek() + " введены неверные данные для создания объекта");
-                                fileNamesStack.pop();
-                                in = scannerStack.pop();
-                                return;
-                            }
-                            println("Неверный формат ввода. Ожидалось целое число");
-                            continue;
-                        }
-                        break;
-                    }
-                    String strType;
-                    while (true) {
-                        print("Введите тип билета " + Arrays.toString(TicketType.values()) + ": ");
-                        strType = nextInput();
-                        if (validTicketType(strType)) break;
-                        if (inputStatus == 1) {
-                            printIgnoringPrintStatus("В файле " + fileNamesStack.peek() + " введены неверные данные для создания объекта");
-                            fileNamesStack.pop();
-                            in = scannerStack.pop();
-                            return;
-                        }
-                        println("Неверный тип");
-                    }
-                    TicketType ticketType = TicketType.valueOf(strType);
-                    Long capacity;
-                    while (true) {
-                        try {
-                            print("Введите вместимость: ");
-                            str = nextInput();
-                            if (str.equals("")) capacity = null;
-                            else capacity = Long.parseLong(str);
-                        } catch (NumberFormatException e) {
-                            if (inputStatus == 1) {
-                                printIgnoringPrintStatus("В файле " + fileNamesStack.peek() + " введены неверные данные для создания объекта");
-                                fileNamesStack.pop();
-                                in = scannerStack.pop();
-                                return;
-                            }
-                            println("Неверный формат ввода. Ожидалось целое число");
-                            continue;
-                        }
-                        break;
-                    }
-                    while (true) {
-                        print("Введите тип места назначения" + Arrays.toString(VenueType.values()) + ": ");
-                        strType = nextInput();
-                        if (validVenueType(strType)) break;
-                        if (inputStatus == 1) {
-                            printIgnoringPrintStatus("Ошибка при исполнении файла " + fileNamesStack.peek());
-                            fileNamesStack.pop();
-                            in = scannerStack.pop();
-                            return;
-                        }
-                        println("Неверный тип");
-                    }
-                    VenueType venueType = VenueType.valueOf(strType);
-                    print("Введите название улицы: ");
-                    String street = nextInput();
-                    print("Введите почтовый индекс: ");
-                    String zipCode = nextInput();
-                    ex.commandExecutionWithElement(command, name, x, y, price, ticketType, capacity, venueType, street, zipCode);
+                    tb.clear();
+                    cw.println("Введите имя: ");
+                    if (!enteringField("name")) return;
+                    cw.println("Введите первую координату: ");
+                    if (!enteringField("x")) return;
+                    cw.println("Введите вторую координату: ");
+                    if (!enteringField("y")) return;
+                    cw.println("Введите цену: ");
+                    if (!enteringField("price")) return;
+                    cw.println("Введите тип билета " + Arrays.toString(TicketType.values()) + ": ");
+                    if (!enteringField("tType")) return;
+                    cw.println("Введите вместительность: ");
+                    if (!enteringField("capacity")) return;
+                    cw.println("Введите тип места назначения " + Arrays.toString(VenueType.values()) + ": ");
+                    if (!enteringField("vType")) return;
+                    cw.println("Введите название улицы: ");
+                    if (!enteringField("street")) return;
+                    cw.println("Введите почтовый индекс: ");
+                    if (!enteringField("zip")) return;
+                    if (command[0].equals("update"))
+                        ex.commandExecutionWithElement(new CommandWithTicket(command, tb.getTicket(Long.parseLong(command[1]))));
+                    else ex.commandExecutionWithElement(new CommandWithTicket(command, tb.getTicket()));
+                    break;
                 case ("info"):
                 case ("show"):
                 case ("remove_by_id"):
@@ -376,10 +153,10 @@ public class ConsoleAndFileParser {
                 case ("filter_by_price"):
                 case ("count_greater_than_type"):
                 case ("print_field_ascending_type"):
-                    ex.commandExecution(command);
+                    ex.commandExecution(new Command(command));
                     break;
                 case ("help"):
-                    printIgnoringPrintStatus("""
+                    cw.printIgnoringPrintStatus("""
                             help: вывести справку по доступным командам
                             info: вывести в стандартный поток вывода информацию о коллекции (тип, дата инициализации, количество элементов и т.д.)
                             show: вывести в стандартный поток вывода все элементы коллекции в строковом представлении
@@ -409,18 +186,19 @@ public class ConsoleAndFileParser {
                         System.out.println("Недостаточно прав для доступа к файлу " + command[1]);
                         break;
                     }
-                    setInputStatus(1);
+                    cw.setInputStatus(1);
                     scannerStack.add(in);
                     fileNamesStack.add(command[1]);
                     in = new Scanner(Paths.get(command[1]));
                     break;
                 case ("exit"):
-                    ex.exit();
+//                    ex.exit();
+                    break;
                 default:
-                    println("Введена неверная команда. Для просмотра справки по доступным командам введите команду help");
+                    cw.println("Введена неверная команда. Для просмотра справки по доступным командам введите команду help");
             }
         } catch (NoSuchElementException e) {
-            printIgnoringPrintStatus("Исполнение файла " + fileNamesStack.peek() + " прервано в связи с ошибкой при выполнении команды " + command[0]);
+            cw.printIgnoringPrintStatus("Исполнение файла " + fileNamesStack.peek() + " прервано в связи с ошибкой при выполнении команды " + command[0]);
         }
     }
 
@@ -437,14 +215,14 @@ public class ConsoleAndFileParser {
                 try {
                     long id = Long.parseLong(command[1]);
                     if (!ex.validId(id)) {
-                        println("Неверный id");
+                        cw.println("Неверный id");
                         return false;
                     }
                 } catch (NumberFormatException e) {
-                    println("Неверный формат id");
+                    cw.println("Неверный формат id");
                     return false;
                 } catch (ArrayIndexOutOfBoundsException e) {
-                    println("Вы не ввели id");
+                    cw.println("Вы не ввели id");
                     return false;
                 }
                 break;
@@ -452,10 +230,10 @@ public class ConsoleAndFileParser {
                 try {
                     TicketType.valueOf(command[1]);
                 } catch (ArrayIndexOutOfBoundsException e) {
-                    println("Вы не ввели тип");
+                    cw.println("Вы не ввели тип");
                     return false;
                 } catch (IllegalArgumentException e) {
-                    println("Неверный тип");
+                    cw.println("Неверный тип");
                     return false;
                 }
                 break;
@@ -463,14 +241,14 @@ public class ConsoleAndFileParser {
             case ("filter_by_price"):
                 try {
                     if (Long.parseLong(command[1]) <= 0) {
-                        println("Цена должна быть больше 0");
+                        cw.println("Цена должна быть больше 0");
                         return false;
                     }
                 } catch (NumberFormatException e) {
-                    println("Неверный формат поля price");
+                    cw.println("Неверный формат поля price");
                     return false;
                 } catch (ArrayIndexOutOfBoundsException e) {
-                    println("Вы не ввели поле price");
+                    cw.println("Вы не ввели поле price");
                     return false;
                 }
                 break;
@@ -478,42 +256,75 @@ public class ConsoleAndFileParser {
                 break;
             case ("execute_script"):
                 if (command.length < 2) {
-                    println("Вы не ввели имя файла");
+                    cw.println("Вы не ввели имя файла");
                     return false;
                 }
                 for (String fileName : fileNamesStack) {
                     if (fileName.equals(command[1])) {
-                        printIgnoringPrintStatus("Невозможно исполнить файл " + "\"" + command[1] + "\" из-за возникновения рекурсии");
+                        cw.printIgnoringPrintStatus("Невозможно исполнить файл " + "\"" + command[1] + "\" из-за возникновения рекурсии");
                         return false;
                     }
                 }
                 File f = new File(command[1]);
                 if (!f.exists()) {
-                    println("Неверное имя файла");
+                    cw.println("Неверное имя файла");
                     return false;
                 } else if (f.isDirectory()) {
-                    println("Невозможно исполнить директорию");
+                    cw.println("Невозможно исполнить директорию");
                     return false;
                 }
                 break;
             case ("remove_at"):
                 try {
-                    Integer.parseInt(command[1]);
+                    int index = Integer.parseInt(command[1]);
+                    if (index < 0) {
+                        cw.println("Индекс не может быть меньше нуля");
+                        return false;
+                    }
                 } catch (NumberFormatException e) {
-                    println("Неверный формат индекса");
+                    cw.println("Неверный формат индекса");
                     return false;
                 } catch (ArrayIndexOutOfBoundsException e) {
-                    println("Вы не ввели индекс");
+                    cw.println("Вы не ввели индекс");
                     return false;
                 }
                 break;
             default:
                 if (command.length > 1) {
-                    println("Введена неверная команда. Для просмотра справки по доступным командам введите команду help");
+                    cw.println("Введена неверная команда. Для просмотра справки по доступным командам введите команду help");
                     return false;
                 }
         }
         return true;
     }
-}
 
+    public boolean enteringField(String command) {
+        while (true) {
+            String status = switch (command) {
+                case ("name") -> tb.setName(nextInput().trim());
+                case ("x") -> tb.setX(nextInput().trim());
+                case ("y") -> tb.setY(nextInput().trim());
+                case ("price") -> tb.setPrice(nextInput().trim());
+                case ("tType") -> tb.setType(nextInput().trim());
+                case ("capacity") -> tb.setVenueCapacity(nextInput().trim());
+                case ("vType") -> tb.setVenueType(nextInput().trim());
+                case ("street") -> tb.setAddressStreet(nextInput().trim());
+                case ("zip") -> tb.setAddressZipCode(nextInput().trim());
+                default -> "error";
+            };
+            if (!status.equals("OK")) {
+                if (cw.getInputStatus() == 1) {
+                    cw.printIgnoringPrintStatus("В файле " + fileNamesStack.peek() + " введены неверные данные для создания объекта");
+                    fileNamesStack.pop();
+                    in = scannerStack.pop();
+                    tb.clear();
+                    return false;
+                }
+                cw.println(status);
+                continue;
+            }
+            break;
+        }
+        return true;
+    }
+}

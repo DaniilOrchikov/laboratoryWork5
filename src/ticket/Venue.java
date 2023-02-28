@@ -2,15 +2,18 @@ package ticket;
 
 import utility.CSVReaderAndWriter;
 
+import java.io.Serializable;
+import java.util.Set;
+
 /**
  * Класс места назначения билета с полями <b>id</b>, <b>name</b>, <b>capacity</b>, <b>type</b>, <b>address</b>
  */
-public class Venue implements Comparable<Venue> {
+public class Venue implements Comparable<Venue>, Serializable {
     /**
      * Поле id.
      * Значение должно быть больше 0, значение должно быть уникальным
      */
-    private final long id;
+    private long id;
     /**
      * Поле название.
      * Не может быть null, Строка не может быть пустой
@@ -39,6 +42,12 @@ public class Venue implements Comparable<Venue> {
         this.type = type;
         this.address = address;
     }
+    public Venue(String name, Long capacity, VenueType type, Address address) {
+        this.name = name;
+        this.capacity = capacity;
+        this.type = type;
+        this.address = address;
+    }
 
     @Override
     public String toString() {
@@ -49,7 +58,7 @@ public class Venue implements Comparable<Venue> {
      * @return возвращает строку в формате для записи в csv файл
      */
     public String toCSVFormat(String separator) {
-        return id + separator + capacity + separator + type + separator + address.toCSVFormat(separator);
+        return capacity + separator + type + separator + address.toCSVFormat(separator);
     }
 
     /**
@@ -63,5 +72,8 @@ public class Venue implements Comparable<Venue> {
 
     public long getId() {
         return id;
+    }
+    public void setId(Long id){
+        this.id = id;
     }
 }

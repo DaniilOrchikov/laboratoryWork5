@@ -2,10 +2,13 @@ package ticket;
 
 import utility.CSVReaderAndWriter;
 
+import java.io.Serializable;
+import java.util.Set;
+
 /**
  * Класс адреса с полями <b>street</b> и <b>zipCode</b>
  */
-public class Address {
+public class Address implements Serializable {
     /**
      * Поле улица.
      * Не может быть пустой, Поле не может быть null

@@ -2,6 +2,10 @@ package utility;
 
 import ticket.*;
 
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 
@@ -13,7 +17,7 @@ public class TicketVector {
      * Поле id.
      * Отвечает за уникальность id билетов
      */
-    private long id = 0;
+    private Long id = 0L;
     /**
      * Поле даты и времени создания данного объекта
      */
@@ -34,51 +38,17 @@ public class TicketVector {
     }
 
     /**
-     * Создает объект класса {@link Ticket#Ticket}
-     *
-     * @param name      название билета
-     * @param x         координаты x
-     * @param y         координаты y
-     * @param price     цена
-     * @param type      тип {@link TicketType}
-     * @param capacity  вместительность {@link Venue}
-     * @param venueType тип места назначения {@link VenueType}
-     * @param street    название улицы {@link Venue}
-     * @param zipCode   индекс места назначения {@link Venue}
-     * @return возвращает объект класса {@link Ticket}
-     */
-    public Ticket createTicket(String name, int x, int y, Integer price, TicketType type, Long capacity, VenueType venueType, String street, String zipCode) {
-        id++;
-        return new Ticket(id, name, new Coordinates(x, y), java.time.LocalDateTime.now(), price, type, new Venue(id, name, capacity, venueType, new Address(street, zipCode)));
-    }
-
-    /**
-     * Создает объект класса {@link Ticket#Ticket}
-     *
-     * @param id        id билета
-     * @param name      название билета
-     * @param x         координаты x
-     * @param y         координаты y
-     * @param price     цена
-     * @param type      тип {@link TicketType}
-     * @param capacity  вместительность {@link Venue}
-     * @param venueType тип места назначения {@link VenueType}
-     * @param street    название улицы {@link Venue}
-     * @param zipCode   индекс места назначения {@link Venue}
-     * @return возвращает объект класса {@link Ticket}
-     */
-    public Ticket createTicket(long id, String name, int x, int y, Integer price, TicketType type, Long capacity, VenueType venueType, String street, String zipCode) {
-        if (this.id <= id) this.id = id++;
-        return new Ticket(id, name, new Coordinates(x, y), java.time.LocalDateTime.now(), price, type, new Venue(id, name, capacity, venueType, new Address(street, zipCode)));
-    }
-
-    /**
      * Добавляет объект в коллекцию. При этом, если id объекта неоригинально, он не будет добавлен
      *
      * @param ticket объект класса {@link  Ticket}
      * @return возврящает true если удалось добавить объект, false - если нет
      */
     public boolean add(Ticket ticket) {
+        if (ticket.getId() != null)this.id = Math.max(this.id, ticket.getId() + 1);
+        else {
+            ticket.setId(id);
+            id ++;
+        }
         if (tv.stream().anyMatch(t -> (t.getId() == ticket.getId() || t.getVenue().getId() == ticket.getVenue().getId())))
             return false;
         tv.add(ticket);
@@ -120,9 +90,7 @@ public class TicketVector {
      * @param id     id объекта, который надо обновить. Предполагается, что id проверенно на корректность (в коллекции существует элемент с таким id) {@link TicketVector#validId}
      */
     public void update(Ticket ticket, long id) {
-        tv.stream().forEach(ticket1 -> {
-            if (ticket1.getId() == id) tv.remove(ticket1);
-        });
+        tv.removeIf(t -> t.getId() == id);
         length--;
         add(ticket);
     }
@@ -155,28 +123,17 @@ public class TicketVector {
      * @return возвращает количество удаленных объектов
      */
     public int removeLower(Ticket ticket) {
-        int v = 0;
         List<Ticket> delTickets = tv.stream().filter(t -> ticket.compareTo(t) > 0).toList();
         length -= delTickets.size();
         tv.removeAll(delTickets);
-        return v;
-    }
-
-    /**
-     * @return возвращает строковое представление коллекции
-     * @see Ticket#toString
-     */
-    public String print() {
-        StringBuilder str = new StringBuilder();
-        tv.stream().forEach(t -> str.append(t).append("\n"));
-        return str.toString();
+        return delTickets.size();
     }
 
     /**
      * @return возвращает массив со всеми элементами коллекции
      */
-    public Ticket[] getAll() {
-        return tv.toArray(new Ticket[0]);
+    public List<Ticket> getAll() {
+        return tv.stream().toList();
     }
 
     /**
@@ -185,12 +142,9 @@ public class TicketVector {
      * @param id id элемента, который нужно удалить. Предполагается, что id проверенно на корректность (в коллекции существует элемент с таким id) {@link TicketVector#validId}
      */
     public void removeById(long id) {
-        tv.stream().forEach(t -> {
-            if (t.getId() == id) {
-                tv.remove(t);
-                length--;
-            }
-        });
+        length -= tv.size();
+        tv.removeIf(t -> t.getId() == id);
+        length += tv.size();
     }
 
     /**
@@ -204,24 +158,24 @@ public class TicketVector {
      * @param str строка, по которой ведется поиск
      * @return возвращает элементы, значение поля name которых содержит заданную подстроку
      */
-    public Vector<Ticket> filterContainsName(String str) {
-        return (Vector<Ticket>) tv.stream().filter(t -> t.getName().contains(str)).toList();
+    public List<Ticket> filterContainsName(String str) {
+        return tv.stream().filter(t -> t.getName().contains(str)).toList();
     }
 
     /**
      * @param price число
      * @return возвращает элементы, значение поля price которых меньше заданного
      */
-    public Vector<Ticket> filterLessThanPrice(int price) {
-        return (Vector<Ticket>) tv.stream().filter(t -> t.getPrice() < price).toList();
+    public List<Ticket> filterLessThanPrice(int price) {
+        return tv.stream().filter(t -> t.getPrice() < price).toList();
     }
 
     /**
      * @param price число
      * @return возвращает элементы, значение поля price которых равно заданному
      */
-    public Vector<Ticket> filterByPrice(int price) {
-        return (Vector<Ticket>) tv.stream().filter(t -> t.getPrice() == price).toList();
+    public List<Ticket> filterByPrice(int price) {
+        return tv.stream().filter(t -> t.getPrice() == price).toList();
     }
 
     /**

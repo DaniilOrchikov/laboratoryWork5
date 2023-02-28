@@ -2,17 +2,18 @@ package ticket;
 
 import utility.CSVReaderAndWriter;
 
+import java.io.Serializable;
 import java.time.format.DateTimeFormatter;
 
 /**
  * Класс билета с полями <b>id</b>, <b>name</b>, <b>coordinates</b>, <b>creationDate</b>, <b>price</b>, <b>type</b> и <b>venue</b>
  */
-public class Ticket implements Comparable<Ticket> {
+public class Ticket implements Comparable<Ticket>, Serializable {
     /**
      * Поле id.
      * Значение должно быть больше 0, значение должно быть уникальным, поле не может быть null
      */
-    private final Long id;
+    private Long id;
     /**
      * Поле названия.
      * Не может быть null, строка не может быть пустой
@@ -54,6 +55,15 @@ public class Ticket implements Comparable<Ticket> {
         this.venue = venue;
     }
 
+    public Ticket(String name, Coordinates coordinates, java.time.LocalDateTime creationDate, Integer price, TicketType type, Venue venue) {
+        this.name = name;
+        this.coordinates = coordinates;
+        this.creationDate = creationDate;
+        this.price = price;
+        this.type = type;
+        this.venue = venue;
+    }
+
     @Override
     public String toString() {
         return String.format("{id:%s, name:%s, coordinates:%s, creationDate:%s, price:%s, type:%s, venue:%s}", id, name, coordinates, creationDate.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")), price, type, venue);
@@ -82,8 +92,12 @@ public class Ticket implements Comparable<Ticket> {
         return v;
     }
 
-    public long getId() {
+    public Long getId() {
         return id;
+    }
+
+    public void setId(long id) {
+        this.id = id;
     }
 
     public Venue getVenue() {

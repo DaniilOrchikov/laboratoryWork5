@@ -2,10 +2,12 @@ package ticket;
 
 import utility.CSVReaderAndWriter;
 
+import java.io.Serializable;
+
 /**
  * Класс координат с полями <b>x</b> и <b>y</b>
  */
-public class Coordinates {
+public class Coordinates implements Serializable {
     /**
      * Поля с координатами x и y
      */

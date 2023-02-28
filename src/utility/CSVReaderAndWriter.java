@@ -8,9 +8,7 @@ import java.io.IOException;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.InputMismatchException;
-import java.util.NoSuchElementException;
-import java.util.Scanner;
+import java.util.*;
 
 /**
  * Класс отвечающий за чтение и запись в csv файл
@@ -28,6 +26,7 @@ public class CSVReaderAndWriter {
      * Поле символ разделения колонок в csv файле
      */
     private String separator = ";";
+    private final TicketBuilder tb = new TicketBuilder();
 
     /**
      * Пытается установить поток считывания из файла
@@ -75,26 +74,24 @@ public class CSVReaderAndWriter {
     private Ticket parseCSVLine(String line) {
         Scanner scanner = new Scanner(line.trim());
         scanner.useDelimiter(separator);
-        long id = scanner.nextLong();
-        String name = scanner.next();
-        if (name.equals("")) throw new InputMismatchException();
-        Coordinates coordinates = new Coordinates(scanner.nextInt(), scanner.nextInt());
-        java.time.LocalDateTime creationDate = LocalDateTime.parse(scanner.next(), DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
-        int price = scanner.nextInt();
-        TicketType type = TicketType.valueOf(scanner.next());
-        long vId = scanner.nextLong();
-        Long capacity = scanner.nextLong();
-        VenueType vType = VenueType.valueOf(scanner.next());
-        String street = scanner.next();
-        String zipCode;
+        tb.clear();
+        long id;
         try {
-            zipCode = scanner.next();
-        } catch (NoSuchElementException e) {
+            id = Long.parseLong(scanner.next());
+        }catch (NumberFormatException e){
             throw new InputMismatchException();
         }
-        if (street.equals("") || zipCode.equals("")) throw new InputMismatchException();
-        Venue venue = new Venue(vId, name, capacity, vType, new Address(street, zipCode));
-        return new Ticket(id, name, coordinates, creationDate, price, type, venue);
+        if (!tb.setName(scanner.next()).equals("OK"))throw new InputMismatchException();
+        if (!tb.setX(scanner.next()).equals("OK"))throw new InputMismatchException();
+        if (!tb.setY(scanner.next()).equals("OK"))throw new InputMismatchException();
+        if (!tb.setCreationDate(scanner.next()).equals("OK"))throw new InputMismatchException();
+        if (!tb.setPrice(scanner.next()).equals("OK"))throw new InputMismatchException();
+        if (!tb.setType(scanner.next()).equals("OK"))throw new InputMismatchException();
+        if (!tb.setVenueCapacity(scanner.next()).equals("OK"))throw new InputMismatchException();
+        if (!tb.setVenueType(scanner.next()).equals("OK"))throw new InputMismatchException();
+        if (!tb.setAddressStreet(scanner.next()).equals("OK"))throw new InputMismatchException();
+        if (!tb.setAddressZipCode(scanner.next()).equals("OK"))throw new InputMismatchException();
+        return tb.getTicket(id);
     }
 
     /**
@@ -103,7 +100,7 @@ public class CSVReaderAndWriter {
      * @param tickets массив объектов класса {@link Ticket}, которые необходимо записать в файл
      * @return возвращает true, если удалось настроить поток записи и записать объекты в файл, false - если что-то пошло не так
      */
-    public boolean writeToCSV(Ticket[] tickets) {
+    public boolean writeToCSV(List<Ticket> tickets) {
         File f = new File(fileName);
         if (!f.exists() || f.isDirectory()) {
             try {
