@@ -11,9 +11,9 @@ import java.nio.file.Paths;
 import java.util.*;
 
 /**
- * Класс для чтения и записи данных в консоль или файл с полями <b>in</b>, <b>scannerStack</b>, <b>fileNamesStack</b>, <b>ex</b>
+ * Класс для чтения данных из консоли или файла и парсинг этих данных в команды. Также для вывода данных на стандартный поток вывода. Поля <b>in</b>, <b>scannerStack</b>, <b>fileNamesStack</b>, <b>ex</b>
  */
-public class ConsoleReaderAndWriter {
+public class ConsoleAndFileParser {
     /**
      * Поле сканер ввода.
      * По умолчанию - системный ввод
@@ -44,7 +44,7 @@ public class ConsoleReaderAndWriter {
      */
     private int inputStatus = 0;
 
-    public ConsoleReaderAndWriter(Executor ex) {
+    public ConsoleAndFileParser(Executor ex) {
         this.ex = ex;
     }
 
@@ -53,8 +53,8 @@ public class ConsoleReaderAndWriter {
     }
 
     /**
-     * Проверяет не закончился ли считываемый файл. Если да - достает следующий сканер из {@link ConsoleReaderAndWriter#scannerStack}.
-     * Если из стека достали последний сканер (ввод с консоли) устанавливает {@link ConsoleReaderAndWriter#inputStatus} 0
+     * Проверяет не закончился ли считываемый файл. Если да - достает следующий сканер из {@link ConsoleAndFileParser#scannerStack}.
+     * Если из стека достали последний сканер (ввод с консоли) устанавливает {@link ConsoleAndFileParser#inputStatus} 0
      */
     private void checkingScanner() {
         if (scannerStack.empty())
@@ -78,6 +78,7 @@ public class ConsoleReaderAndWriter {
      */
     public String[] read() {
         checkingScanner();
+        print("Введите команду: ");
         return nextInput().split(" ");
     }
 
@@ -87,14 +88,17 @@ public class ConsoleReaderAndWriter {
      * @return возвращает строку
      */
     private String nextInput() {
-        print("Введите команду: ");
-        String str = in.nextLine();
-        str = str.trim();
+        String str = "";
+        try{
+            str = in.nextLine().trim();
+        }catch (NoSuchElementException e){
+            emergencyExit();
+        }
         return str;
     }
 
     /**
-     * При условии, что {@link ConsoleReaderAndWriter#inputStatus} != 1 печатает переданную строку с помощью System.out.println(String)
+     * При условии, что {@link ConsoleAndFileParser#inputStatus} != 1 печатает переданную строку с помощью System.out.println(String)
      *
      * @param str строка, которую необходимо напечатать
      */
@@ -103,7 +107,7 @@ public class ConsoleReaderAndWriter {
     }
 
     /**
-     * При условии, что {@link ConsoleReaderAndWriter#inputStatus} != 1 печатает переданную строку с помощью System.out.print(String)
+     * При условии, что {@link ConsoleAndFileParser#inputStatus} != 1 печатает переданную строку с помощью System.out.print(String)
      *
      * @param str строка, которую необходимо напечатать
      */
@@ -133,6 +137,11 @@ public class ConsoleReaderAndWriter {
             }
         }
         return false;
+    }
+
+    private void emergencyExit(){
+        printIgnoringPrintStatus("Экстренный выход");
+        ex.exit();
     }
 
     /**
@@ -166,15 +175,18 @@ public class ConsoleReaderAndWriter {
         if (!reentryAttempt()) return;
         if (!okList[0]) {
             print("Введите имя: ");
-            name = in.nextLine();
+            name = nextInput();
         } else println("Введите имя: " + name);
         println("Введите первую координату: " + x);
         println("Введите вторую координату: " + y);
+        String str;
         if (!okList[1]) {
             while (true) {
                 print("Введите стоимость: ");
                 try {
-                    price = Integer.parseInt(in.nextLine());
+                    str = nextInput();
+                    if (str.equals("")) price = null;
+                    else price = Integer.parseInt(str);
                 } catch (NumberFormatException e) {
                     println("Неверный формат ввода. Ожидалось целое число");
                     continue;
@@ -187,7 +199,9 @@ public class ConsoleReaderAndWriter {
             while (true) {
                 print("Введите вместимость: ");
                 try {
-                    capacity = Long.parseLong(in.nextLine());
+                    str = nextInput();
+                    if (str.equals("")) capacity = null;
+                    else capacity = Long.parseLong(str);
                 } catch (NumberFormatException e) {
                     println("Неверный формат ввода. Ожидалось целое число");
                     continue;
@@ -198,16 +212,15 @@ public class ConsoleReaderAndWriter {
         println("Введите тип места назначения " + Arrays.toString(VenueType.values()) + ": " + venueType);
         if (!okList[3]) {
             print("Введите название улицы: ");
-            street = in.nextLine();
+            street = nextInput();
         } else println("Введите название улицы: " + street);
         if (!okList[4]) {
             print("Введите почтовый индекс: ");
-            zipCode = in.nextLine();
+            zipCode = nextInput();
         } else println("Введите почтовый индекс: " + zipCode);
         in = scannerStack.pop();
-        if (!scannerStack.empty()) {
-            setInputStatus(1);
-        }
+        if (inputStatus == 2) setInputStatus(0);
+        if (!scannerStack.empty()) setInputStatus(1);
         ex.commandExecutionWithElement(command, name, x, y, price, type, capacity, venueType, street, zipCode);
     }
 
@@ -219,16 +232,16 @@ public class ConsoleReaderAndWriter {
      * 1 Если требуется ввести числовые данные<br>
      * 1.1 Считывает вводимые данные<br>
      * 1.2 Пытается преобразовать введенные данные в нужный тип<br>
-     * 1.3 Если удалось - переход к введению следующего поля (если ввод совершался из файла и была выявлена ошибка ({@link ConsoleReaderAndWriter#inputStatus} == 2), удаляет созданный на шаге 1.4 сканер и загружает старый из {@link ConsoleReaderAndWriter#scannerStack})<br>
+     * 1.3 Если удалось - переход к введению следующего поля (если ввод совершался из файла и была выявлена ошибка ({@link ConsoleAndFileParser#inputStatus} == 2), удаляет созданный на шаге 1.4 сканер и загружает старый из {@link ConsoleAndFileParser#scannerStack})<br>
      * 1.4 Если не удалось - проверяет, откуда производился ввод<br>
-     * 1.5 Вызывается метод {@link ConsoleReaderAndWriter#reentryAttempt}. Тем самым создается новый сканер стандартного ввода<br>
+     * 1.5 Вызывается метод {@link ConsoleAndFileParser#reentryAttempt}. Тем самым создается новый сканер стандартного ввода<br>
      * 1.6 Переходит к шагу 1.1<br>
      * 2 Если требуется ввести строку - считывание строки<br>
      * 3 Если требуется ввести тип<br>
      * 3.1 Считывает вводимые данные<br>
-     * 3.2 С помощью методов {@link ConsoleReaderAndWriter#validVenueType} и {@link ConsoleReaderAndWriter#validTicketType} проверяет соответствие введенной строки одному из типов<br>
-     * 3.3 Если найдено соответствие - переход к введению следующего поля (если ввод совершался из файла и была выявлена ошибка ({@link ConsoleReaderAndWriter#inputStatus} == 2), удаляет созданный на шаге 1.4 сканер и загружает старый из {@link ConsoleReaderAndWriter#scannerStack})<br>
-     * 3.4 Вызывается метод {@link ConsoleReaderAndWriter#reentryAttempt}. Тем самым создается новый сканер стандартного ввода<br>
+     * 3.2 С помощью методов {@link ConsoleAndFileParser#validVenueType} и {@link ConsoleAndFileParser#validTicketType} проверяет соответствие введенной строки одному из типов<br>
+     * 3.3 Если найдено соответствие - переход к введению следующего поля (если ввод совершался из файла и была выявлена ошибка ({@link ConsoleAndFileParser#inputStatus} == 2), удаляет созданный на шаге 1.4 сканер и загружает старый из {@link ConsoleAndFileParser#scannerStack})<br>
+     * 3.4 Вызывается метод {@link ConsoleAndFileParser#reentryAttempt}. Тем самым создается новый сканер стандартного ввода<br>
      * 3.5 Переходит к шагу 3.1<br>
      * Далее передает данные и команду Исполнителю {@link Executor}({@link Executor#commandExecutionWithElement})
      *
@@ -244,13 +257,13 @@ public class ConsoleReaderAndWriter {
                 case ("add"):
                 case ("remove_lower"):
                     print("Введите имя: ");
-                    String name = in.nextLine();
+                    String name = nextInput();
                     if (name.equals("")) name = null;
                     int x;
                     while (true) {
                         print("Введите первую координату: ");
                         try {
-                            x = Integer.parseInt(in.nextLine());// попытка преобразовать в нужный тип
+                            x = Integer.parseInt(nextInput());// попытка преобразовать в нужный тип
                         } catch (NumberFormatException e) {
                             if (inputStatus == 1) { // если ввод происходит из файла и пока не найдена ошибка в этом поле(2)
                                 printIgnoringPrintStatus("Не удалось загрузить объект в связи с неправильным форматом данных в поле первая координата. Хотите ввести значение вручную?\nДа - Y, нет - N");
@@ -272,7 +285,7 @@ public class ConsoleReaderAndWriter {
                     while (true) {
                         print("Введите вторую координату: ");
                         try {
-                            y = Integer.parseInt(in.nextLine());
+                            y = Integer.parseInt(nextInput());
                         } catch (NumberFormatException e) {
                             if (inputStatus == 1) {
                                 printIgnoringPrintStatus("Не удалось загрузить объект в связи с неправильным форматом данных в поле вторая координата. Хотите ввести значение вручную?\nДа - Y, нет - N");
@@ -290,14 +303,14 @@ public class ConsoleReaderAndWriter {
                             setInputStatus(1);
                         } else setInputStatus(0);
                     }
-                    String strP;
+                    String str;
                     Integer price;
                     while (true) {
                         print("Введите стоимость: ");
                         try {
-                            strP = in.nextLine();
-                            if (strP.equals("")) price = null;
-                            else price = Integer.parseInt(strP);
+                            str = nextInput();
+                            if (str.equals("")) price = null;
+                            else price = Integer.parseInt(str);
                         } catch (NumberFormatException e) {
                             if (inputStatus == 1) {
                                 printIgnoringPrintStatus("Не удалось загрузить объект в связи с неправильным форматом данных в поле стоимость. Хотите ввести значение вручную?\nДа - Y, нет - N");
@@ -318,7 +331,7 @@ public class ConsoleReaderAndWriter {
                     String strType;
                     while (true) {
                         print("Введите тип билета " + Arrays.toString(TicketType.values()) + ": ");
-                        strType = in.nextLine();
+                        strType = nextInput();
                         if (validTicketType(strType)) break;
                         if (inputStatus == 1) {
                             printIgnoringPrintStatus("Не удалось загрузить объект в связи с неправильным форматом данных в поле тип билета. Хотите ввести значение вручную?\nДа - Y, нет - N");
@@ -334,14 +347,13 @@ public class ConsoleReaderAndWriter {
                         } else setInputStatus(0);
                     }
                     TicketType ticketType = TicketType.valueOf(strType);
-                    String strC;
                     Long capacity;
                     while (true) {
                         try {
                             print("Введите вместимость: ");
-                            strC = in.nextLine();
-                            if (strC.equals("")) capacity = null;
-                            else capacity = Long.parseLong(strC);
+                            str = nextInput();
+                            if (str.equals("")) capacity = null;
+                            else capacity = Long.parseLong(str);
                         } catch (NumberFormatException e) {
                             if (inputStatus == 1) {
                                 printIgnoringPrintStatus("Не удалось загрузить объект в связи с неправильным форматом данных в поле вместимость. Хотите ввести значение вручную?\nДа - Y, нет - N");
@@ -361,7 +373,7 @@ public class ConsoleReaderAndWriter {
                     }
                     while (true) {
                         print("Введите тип места назначения" + Arrays.toString(VenueType.values()) + ": ");
-                        strType = in.nextLine();
+                        strType = nextInput();
                         if (validVenueType(strType)) break;
                         if (inputStatus == 1) {
                             printIgnoringPrintStatus("Не удалось загрузить объект в связи с неправильным форматом данных в поле тип места назначения. Хотите ввести значение вручную?\nДа - Y, нет - N");
@@ -378,9 +390,9 @@ public class ConsoleReaderAndWriter {
                     }
                     VenueType venueType = VenueType.valueOf(strType);
                     print("Введите название улицы: ");
-                    String street = in.nextLine();
+                    String street = nextInput();
                     print("Введите почтовый индекс: ");
-                    String zipCode = in.nextLine();
+                    String zipCode = nextInput();
                     ex.commandExecutionWithElement(command, name, x, y, price, ticketType, capacity, venueType, street, zipCode);
                 case ("info"):
                 case ("show"):
@@ -422,20 +434,19 @@ public class ConsoleReaderAndWriter {
                             print_field_ascending_type : вывести значения поля type всех элементов в порядке возрастания""");
                     break;
                 case ("execute_script"):
-                    try{
+                    try {
                         new Scanner(Paths.get(command[1]));
-                    }catch (AccessDeniedException e) {
+                    } catch (AccessDeniedException e) {
                         System.out.println("Недостаточно прав для доступа к файлу " + command[1]);
                         break;
                     }
                     setInputStatus(1);
                     scannerStack.add(in);
                     fileNamesStack.add(command[1]);
-                    this.in = new Scanner(Paths.get(command[1]));
+                    in = new Scanner(Paths.get(command[1]));
                     break;
                 case ("exit"):
                     ex.exit();
-                    break;
                 default:
                     println("Введена неверная команда. Для просмотра справки по доступным командам введите команду help");
             }
@@ -455,9 +466,11 @@ public class ConsoleReaderAndWriter {
         setInputStatus(2); // статус для обработки исключений при вводе неправильного типа данных из файла
         String str = nextInput(); // хочет ли пользователь ввести поле заново
         if (!str.equalsIgnoreCase("y")) { // возвращаем старый сканер и выходим из файла
-            scannerStack.pop();
+            if (scannerStack.toArray().length > 1) {
+                scannerStack.pop();
+                fileNamesStack.pop();
+            }
             in = scannerStack.pop();
-            fileNamesStack.pop();
             return false;
         }
         return true;

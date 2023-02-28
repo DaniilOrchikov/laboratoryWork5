@@ -1,5 +1,5 @@
 import utility.CSVReaderAndWriter;
-import utility.ConsoleReaderAndWriter;
+import utility.ConsoleAndFileParser;
 import utility.Executor;
 
 import java.io.IOException;
@@ -11,7 +11,7 @@ public class Main {
             if (args.length > 0)
                 csvRW.setFile(args[0]);
             Executor ex = new Executor(csvRW);
-            ConsoleReaderAndWriter cr = new ConsoleReaderAndWriter(ex);
+            ConsoleAndFileParser cr = new ConsoleAndFileParser(ex);
             ex.setConsoleReader(cr);
             ex.createTQFromCSV();
             ex.read();

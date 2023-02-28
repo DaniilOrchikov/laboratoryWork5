@@ -22,7 +22,7 @@ public class Coordinates {
         return String.format("{x:%s, y:%s}", x, y);
     }
     /**
-     * @param separator символ разделения колонок в csv файле {@link CSVReaderAndWriter#separator}
+     * @param separator символ разделения колонок в csv файле. {@link CSVReaderAndWriter#separator}
      * @return возвращает строку в формате для записи в csv файл
      */
     public String toCSVFormat(String separator){

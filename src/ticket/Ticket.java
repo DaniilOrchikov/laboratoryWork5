@@ -60,7 +60,7 @@ public class Ticket implements Comparable<Ticket> {
     }
 
     /**
-     * @param separator символ разделения колонок в csv файле {@link CSVReaderAndWriter#separator}
+     * @param separator символ разделения колонок в csv файле. {@link CSVReaderAndWriter#separator}
      * @return возвращает строку в формате для записи в csv файл
      */
     public String toCSVFormat(String separator) {
@@ -75,9 +75,7 @@ public class Ticket implements Comparable<Ticket> {
      */
     @Override
     public int compareTo(Ticket t) {
-        int v = 0;
-        if (this.type.compareTo(t.type) < 0) v += 5;
-        else if (this.type.compareTo(t.type) > 0) v -= 5;
+        int v = this.type.compareTo(t.type) * 5;
         v += this.venue.compareTo(t.venue);
         if (this.price > t.price) v++;
         else if (this.price < t.price) v--;

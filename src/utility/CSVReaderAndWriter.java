@@ -30,12 +30,17 @@ public class CSVReaderAndWriter {
 
     /**
      * Пытается установить поток считывания из файла
+     *
      * @param fileName имя csv файла, в который будут записываться, и из которого будут читаться данные
      */
     public void setFile(String fileName) {
         this.fileName = fileName;
         try {
             File f = new File(this.fileName);
+            if (!f.canRead()) {
+                System.out.println("Недостаточно прав для чтения из файла");
+                return;
+            }
             if (!f.exists()) {
                 System.out.println("Неверное имя файла");
             } else if (f.isDirectory()) {
@@ -44,9 +49,7 @@ public class CSVReaderAndWriter {
                 scanner = new Scanner(Paths.get(fileName));
                 scanner.useDelimiter("\n");
             }
-        }catch (AccessDeniedException e){
-            System.out.println("Недостаточно прав для доступа к файлу");
-        }catch (IOException e){
+        } catch (IOException e) {
             System.out.println("Не удалось настроить поток чтения из файла");
         }
     }
@@ -55,7 +58,7 @@ public class CSVReaderAndWriter {
      * @return Возвращает true, если можно продолжить считывание, и false - если нельзя
      */
     public boolean hasNext() {
-        if (scanner == null)return false;
+        if (scanner == null) return false;
         return scanner.hasNext();
     }
 
@@ -72,7 +75,7 @@ public class CSVReaderAndWriter {
      */
     private Ticket parseCSVLine(String line) {
         Scanner scanner = new Scanner(line);
-        scanner.useDelimiter("\\s*"+ separator + "\\s*");
+        scanner.useDelimiter("\\s*" + separator + "\\s*");
         long id = scanner.nextLong();
         String name = scanner.next();
         Coordinates coordinates = new Coordinates(scanner.nextInt(), scanner.nextInt());
@@ -85,12 +88,16 @@ public class CSVReaderAndWriter {
 
     /**
      * Запись в файл в формате csv
+     *
      * @param tickets массив объектов класса {@link Ticket}, которые необходимо записать в файл
      * @return возвращает true, если удалось настроить поток записи и записать объекты в файл, false - если что-то пошло не так
      */
     public boolean writeToCSV(Ticket[] tickets) {
-        File f = new File(this.fileName);
+        File f = new File(fileName);
         if (!f.exists() || f.isDirectory()) {
+            return false;
+        } else if (!f.canWrite()) {
+            System.out.println("Недостаточно прав на файл " + fileName);
             return false;
         } else {
             try (FileWriter writer = new FileWriter(fileName)) {

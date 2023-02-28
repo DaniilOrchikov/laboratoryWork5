@@ -45,7 +45,7 @@ public class Venue implements Comparable<Venue> {
         return String.format("{id:%s, name:%s, capacity:%s, type:%s, address:%s}", id, name, capacity, type, address);
     }
     /**
-     * @param separator символ разделения колонок в csv файле {@link CSVReaderAndWriter#separator}
+     * @param separator символ разделения колонок в csv файле. {@link CSVReaderAndWriter#separator}
      * @return возвращает строку в формате для записи в csv файл
      */
     public String toCSVFormat(String separator) {
