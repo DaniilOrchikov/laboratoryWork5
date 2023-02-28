@@ -6,11 +6,9 @@ import ticket.VenueType;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.AccessDeniedException;
 import java.nio.file.Paths;
-import java.util.Arrays;
-import java.util.NoSuchElementException;
-import java.util.Scanner;
-import java.util.Stack;
+import java.util.*;
 
 /**
  * Класс для чтения и записи данных в консоль или файл с полями <b>in</b>, <b>scannerStack</b>, <b>fileNamesStack</b>, <b>ex</b>
@@ -160,7 +158,7 @@ public class ConsoleReaderAndWriter {
      * @param command введенная команда
      * @param okList  массив содержащий 5 значений типа boolean, соответствующих полям <b>name</b>, <b>price</b>, <b>capacity</b>, <b>street</b>, <b>zipCode</b>. Если значение true - поле введено корректно, если false - поле нужно пересоздать
      */
-    public void recreatingObject(String[] command, boolean[] okList, String name, long x, double y, int price, TicketType type, Long capacity, VenueType venueType, String street, String zipCode) {
+    public void recreatingObject(String[] command, boolean[] okList, String name, int x, int y, Integer price, TicketType type, Long capacity, VenueType venueType, String street, String zipCode) {
         if (inputStatus != 0)
             printIgnoringPrintStatus("В файле " + fileNamesStack.peek() + " введены неверные данные для создания объекта. Хотите пересоздать объект в ручном режиме? Все корректно введенные поля будут заполнены автоматически. При отказе исполнение файла прервется. \nДа - Y, нет - N");
         else
@@ -247,11 +245,12 @@ public class ConsoleReaderAndWriter {
                 case ("remove_lower"):
                     print("Введите имя: ");
                     String name = in.nextLine();
-                    long x;
+                    if (name.equals("")) name = null;
+                    int x;
                     while (true) {
                         print("Введите первую координату: ");
                         try {
-                            x = Long.parseLong(in.nextLine()); // попытка преобразовать в нужный тип
+                            x = Integer.parseInt(in.nextLine());// попытка преобразовать в нужный тип
                         } catch (NumberFormatException e) {
                             if (inputStatus == 1) { // если ввод происходит из файла и пока не найдена ошибка в этом поле(2)
                                 printIgnoringPrintStatus("Не удалось загрузить объект в связи с неправильным форматом данных в поле первая координата. Хотите ввести значение вручную?\nДа - Y, нет - N");
@@ -269,11 +268,11 @@ public class ConsoleReaderAndWriter {
                             setInputStatus(1);
                         } else setInputStatus(0);
                     }
-                    double y;
+                    int y;
                     while (true) {
                         print("Введите вторую координату: ");
                         try {
-                            y = Double.parseDouble(in.nextLine());
+                            y = Integer.parseInt(in.nextLine());
                         } catch (NumberFormatException e) {
                             if (inputStatus == 1) {
                                 printIgnoringPrintStatus("Не удалось загрузить объект в связи с неправильным форматом данных в поле вторая координата. Хотите ввести значение вручную?\nДа - Y, нет - N");
@@ -291,11 +290,14 @@ public class ConsoleReaderAndWriter {
                             setInputStatus(1);
                         } else setInputStatus(0);
                     }
-                    int price;
+                    String strP;
+                    Integer price;
                     while (true) {
                         print("Введите стоимость: ");
                         try {
-                            price = Integer.parseInt(in.nextLine());
+                            strP = in.nextLine();
+                            if (strP.equals("")) price = null;
+                            else price = Integer.parseInt(strP);
                         } catch (NumberFormatException e) {
                             if (inputStatus == 1) {
                                 printIgnoringPrintStatus("Не удалось загрузить объект в связи с неправильным форматом данных в поле стоимость. Хотите ввести значение вручную?\nДа - Y, нет - N");
@@ -332,11 +334,14 @@ public class ConsoleReaderAndWriter {
                         } else setInputStatus(0);
                     }
                     TicketType ticketType = TicketType.valueOf(strType);
+                    String strC;
                     Long capacity;
                     while (true) {
                         try {
                             print("Введите вместимость: ");
-                            capacity = Long.parseLong(in.nextLine());
+                            strC = in.nextLine();
+                            if (strC.equals("")) capacity = null;
+                            else capacity = Long.parseLong(strC);
                         } catch (NumberFormatException e) {
                             if (inputStatus == 1) {
                                 printIgnoringPrintStatus("Не удалось загрузить объект в связи с неправильным форматом данных в поле вместимость. Хотите ввести значение вручную?\nДа - Y, нет - N");
@@ -417,8 +422,15 @@ public class ConsoleReaderAndWriter {
                             print_field_ascending_type : вывести значения поля type всех элементов в порядке возрастания""");
                     break;
                 case ("execute_script"):
+                    try{
+                        new Scanner(Paths.get(command[1]));
+                    }catch (AccessDeniedException e) {
+                        System.out.println("Недостаточно прав для доступа к файлу " + command[1]);
+                        break;
+                    }
                     setInputStatus(1);
                     scannerStack.add(in);
+                    fileNamesStack.add(command[1]);
                     this.in = new Scanner(Paths.get(command[1]));
                     break;
                 case ("exit"):
@@ -514,7 +526,6 @@ public class ConsoleReaderAndWriter {
                         return false;
                     }
                 }
-                fileNamesStack.add(command[1]);
                 File f = new File(command[1]);
                 if (!f.exists()) {
                     println("Неверное имя файла");

@@ -44,7 +44,7 @@ public class Ticket implements Comparable<Ticket> {
      */
     private final Venue venue;
 
-    public Ticket(long id, String name, Coordinates coordinates, java.time.LocalDateTime creationDate, int price, TicketType type, Venue venue) {
+    public Ticket(Long id, String name, Coordinates coordinates, java.time.LocalDateTime creationDate, Integer price, TicketType type, Venue venue) {
         this.id = id;
         this.name = name;
         this.coordinates = coordinates;
@@ -71,7 +71,7 @@ public class Ticket implements Comparable<Ticket> {
      * Сравнивает объект с объектом типа ticket.Ticket {@link Ticket}
      * Сравнение происходит по полям {@link Ticket#type}({@link TicketType}), {@link Ticket#venue}({@link Venue}) и {@link Ticket#price}
      *
-     * @param t объект, с которым производится сравнение
+     * @param t объект типа {@link Ticket}, с которым производится сравнение
      */
     @Override
     public int compareTo(Ticket t) {

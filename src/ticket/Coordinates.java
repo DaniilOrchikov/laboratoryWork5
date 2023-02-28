@@ -9,10 +9,10 @@ public class Coordinates {
     /**
      * Поля с координатами x и y
      */
-    private final long x;
-    private final double y;
+    private final int x;
+    private final int y;
 
-    public Coordinates(long x, double y) {
+    public Coordinates(int x, int y) {
         this.x = x;
         this.y = y;
     }

@@ -136,13 +136,13 @@ public class Executor {
      * Передаются параметры нужные для создания объекта класса {@link Ticket}({@link Ticket#Ticket})
      * @param command массив строк
      */
-    public void commandExecutionWithElement(String[] command, String name, long x, double y, int price, TicketType type, Long capacity, VenueType venueType, String street, String zipCode) {
+    public void commandExecutionWithElement(String[] command, String name, int x, int y, Integer price, TicketType type, Long capacity, VenueType venueType, String street, String zipCode) {
         Ticket ticket;
         boolean[] okList = {true, true, true, true, true};
         if (name == null || name.isEmpty() || name.trim().length() == 0) {
             okList[0] = false;
         }
-        if (price <= 0) {
+        if (price == null || price <= 0) {
             okList[1] = false;
         }
         if (capacity == null || capacity <= 0) {

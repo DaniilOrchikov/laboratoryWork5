@@ -75,11 +75,11 @@ public class CSVReaderAndWriter {
         scanner.useDelimiter("\\s*"+ separator + "\\s*");
         long id = scanner.nextLong();
         String name = scanner.next();
-        Coordinates coordinates = new Coordinates(scanner.nextInt(), Double.parseDouble(scanner.next()));
+        Coordinates coordinates = new Coordinates(scanner.nextInt(), scanner.nextInt());
         java.time.LocalDateTime creationDate = LocalDateTime.parse(scanner.next(), DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
         int price = scanner.nextInt();
         TicketType type = TicketType.valueOf(scanner.next());
-        Venue venue = new Venue(scanner.nextLong(), scanner.next(), scanner.nextLong(), VenueType.valueOf(scanner.next()), new Address(scanner.next(), scanner.next()));
+        Venue venue = new Venue(scanner.nextLong(), name, scanner.nextLong(), VenueType.valueOf(scanner.next()), new Address(scanner.next(), scanner.next()));
         return new Ticket(id, name, coordinates, creationDate, price, type, venue);
     }
 

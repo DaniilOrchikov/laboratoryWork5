@@ -47,7 +47,7 @@ public class TicketVector {
      * @param zipCode   индекс места назначения {@link Venue}
      * @return возвращает объект класса {@link Ticket}
      */
-    public Ticket createTicket(String name, long x, double y, int price, TicketType type, Long capacity, VenueType venueType, String street, String zipCode) {
+    public Ticket createTicket(String name, int x, int y, Integer price, TicketType type, Long capacity, VenueType venueType, String street, String zipCode) {
         id++;
         return new Ticket(id, name, new Coordinates(x, y), java.time.LocalDateTime.now(), price, type, new Venue(id, name, capacity, venueType, new Address(street, zipCode)));
     }
@@ -67,7 +67,7 @@ public class TicketVector {
      * @param zipCode   индекс места назначения {@link Venue}
      * @return возвращает объект класса {@link Ticket}
      */
-    public Ticket createTicket(long id, String name, long x, double y, int price, TicketType type, Long capacity, VenueType venueType, String street, String zipCode) {
+    public Ticket createTicket(long id, String name, int x, int y, Integer price, TicketType type, Long capacity, VenueType venueType, String street, String zipCode) {
         if (this.id <= id) this.id = id++;
         return new Ticket(id, name, new Coordinates(x, y), java.time.LocalDateTime.now(), price, type, new Venue(id, name, capacity, venueType, new Address(street, zipCode)));
     }

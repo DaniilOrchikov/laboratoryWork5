@@ -49,11 +49,11 @@ public class Venue implements Comparable<Venue> {
      * @return возвращает строку в формате для записи в csv файл
      */
     public String toCSVFormat(String separator) {
-        return id + separator + name + separator + capacity + separator + type + separator + address.toCSVFormat(separator);
+        return id + separator + capacity + separator + type + separator + address.toCSVFormat(separator);
     }
 
     /**
-     * @param v объект, с которым производится сравнение
+     * @param v объект типа {@link Venue}, с которым производится сравнение
      * Объекты сравниваются по полю {@link Venue#capacity}
      */
     @Override
