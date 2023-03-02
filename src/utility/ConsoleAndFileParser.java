@@ -40,7 +40,6 @@ public class ConsoleAndFileParser {
      * Поле статуса ввода
      * 0 - стандартный ввод
      * 1 - ввод из файла
-     * 2 - вспомогательный статус. Используется, когда при вводе из файла возникает ошибка и требуется ввод пользователя
      */
     private int inputStatus = 0;
 
@@ -78,7 +77,7 @@ public class ConsoleAndFileParser {
      */
     public String[] read() {
         checkingScanner();
-        print("Введите команду: ");
+        print(">>");
         return nextInput().split(" ");
     }
 
@@ -89,9 +88,9 @@ public class ConsoleAndFileParser {
      */
     private String nextInput() {
         String str = "";
-        try{
+        try {
             str = in.nextLine().trim();
-        }catch (NoSuchElementException e){
+        } catch (NoSuchElementException e) {
             emergencyExit();
         }
         return str;
@@ -139,7 +138,7 @@ public class ConsoleAndFileParser {
         return false;
     }
 
-    private void emergencyExit(){
+    private void emergencyExit() {
         printIgnoringPrintStatus("Экстренный выход");
         ex.exit();
     }
@@ -162,17 +161,20 @@ public class ConsoleAndFileParser {
     /**
      * Если при создании объекта класса {@link Ticket} были переданы некорректные параметры можно пересоздать его с помощью этого метода.
      * Он автоматически заполнит корректно введенные поля и попросит ввести остальные.
-     * Работает и при вводе с консоли и из файла.
+     * Работает только при вводе с консоли. При вводе из файла происходит выход из файла.
      *
      * @param command введенная команда
      * @param okList  массив содержащий 5 значений типа boolean, соответствующих полям <b>name</b>, <b>price</b>, <b>capacity</b>, <b>street</b>, <b>zipCode</b>. Если значение true - поле введено корректно, если false - поле нужно пересоздать
      */
     public void recreatingObject(String[] command, boolean[] okList, String name, int x, int y, Integer price, TicketType type, Long capacity, VenueType venueType, String street, String zipCode) {
-        if (inputStatus != 0)
-            printIgnoringPrintStatus("В файле " + fileNamesStack.peek() + " введены неверные данные для создания объекта. Хотите пересоздать объект в ручном режиме? Все корректно введенные поля будут заполнены автоматически. При отказе исполнение файла прервется. \nДа - Y, нет - N");
-        else
+        if (inputStatus != 0) {
+            printIgnoringPrintStatus("В файле " + fileNamesStack.peek() + " введены неверные данные для создания объекта");
+            fileNamesStack.pop();
+            in = scannerStack.pop();
+            return;
+        } else
             println("Некоторые поля некорректны. Хотите пересоздать объект? Все корректно введенные поля будут заполнены автоматически.\nДа - Y, нет - N");
-        if (!reentryAttempt()) return;
+        if (!nextInput().equalsIgnoreCase("Y")) return;
         if (!okList[0]) {
             print("Введите имя: ");
             name = nextInput();
@@ -218,9 +220,6 @@ public class ConsoleAndFileParser {
             print("Введите почтовый индекс: ");
             zipCode = nextInput();
         } else println("Введите почтовый индекс: " + zipCode);
-        in = scannerStack.pop();
-        if (inputStatus == 2) setInputStatus(0);
-        if (!scannerStack.empty()) setInputStatus(1);
         ex.commandExecutionWithElement(command, name, x, y, price, type, capacity, venueType, street, zipCode);
     }
 
@@ -232,17 +231,17 @@ public class ConsoleAndFileParser {
      * 1 Если требуется ввести числовые данные<br>
      * 1.1 Считывает вводимые данные<br>
      * 1.2 Пытается преобразовать введенные данные в нужный тип<br>
-     * 1.3 Если удалось - переход к введению следующего поля (если ввод совершался из файла и была выявлена ошибка ({@link ConsoleAndFileParser#inputStatus} == 2), удаляет созданный на шаге 1.4 сканер и загружает старый из {@link ConsoleAndFileParser#scannerStack})<br>
+     * 1.3 Если удалось - переход к введению следующего поля
      * 1.4 Если не удалось - проверяет, откуда производился ввод<br>
-     * 1.5 Вызывается метод {@link ConsoleAndFileParser#reentryAttempt}. Тем самым создается новый сканер стандартного ввода<br>
-     * 1.6 Переходит к шагу 1.1<br>
+     * 1.5 Если ввод из файла - выход из файла
+     * 1.6 Иначе переходит к шагу 1.1<br>
      * 2 Если требуется ввести строку - считывание строки<br>
      * 3 Если требуется ввести тип<br>
      * 3.1 Считывает вводимые данные<br>
      * 3.2 С помощью методов {@link ConsoleAndFileParser#validVenueType} и {@link ConsoleAndFileParser#validTicketType} проверяет соответствие введенной строки одному из типов<br>
-     * 3.3 Если найдено соответствие - переход к введению следующего поля (если ввод совершался из файла и была выявлена ошибка ({@link ConsoleAndFileParser#inputStatus} == 2), удаляет созданный на шаге 1.4 сканер и загружает старый из {@link ConsoleAndFileParser#scannerStack})<br>
-     * 3.4 Вызывается метод {@link ConsoleAndFileParser#reentryAttempt}. Тем самым создается новый сканер стандартного ввода<br>
-     * 3.5 Переходит к шагу 3.1<br>
+     * 3.3 Если найдено соответствие - переход к введению следующего поля
+     * 3.4 Если ввод из файла - выход из файла
+     * 3.5 Иначе переходит к шагу 3.1<br>
      * Далее передает данные и команду Исполнителю {@link Executor}({@link Executor#commandExecutionWithElement})
      *
      * @param command массив строк (команда, которую необходимо исполнить и, при необходимости, параметры)
@@ -263,23 +262,18 @@ public class ConsoleAndFileParser {
                     while (true) {
                         print("Введите первую координату: ");
                         try {
-                            x = Integer.parseInt(nextInput());// попытка преобразовать в нужный тип
+                            x = Integer.parseInt(nextInput());
                         } catch (NumberFormatException e) {
-                            if (inputStatus == 1) { // если ввод происходит из файла и пока не найдена ошибка в этом поле(2)
-                                printIgnoringPrintStatus("Не удалось загрузить объект в связи с неправильным форматом данных в поле первая координата. Хотите ввести значение вручную?\nДа - Y, нет - N");
-                                if (!reentryAttempt()) return;
-                                continue;
+                            if (inputStatus == 1) {
+                                printIgnoringPrintStatus("В файле " + fileNamesStack.peek() + " введены неверные данные для создания объекта");
+                                fileNamesStack.pop();
+                                in = scannerStack.pop();
+                                return;
                             }
                             println("Неверный формат ввода. Ожидалось целое число");
                             continue;
                         }
                         break;
-                    }
-                    if (inputStatus == 2) { // если ввод происходил из файла и было введено неверное значение
-                        in = scannerStack.pop();
-                        if (!scannerStack.empty()) {
-                            setInputStatus(1);
-                        } else setInputStatus(0);
                     }
                     int y;
                     while (true) {
@@ -288,20 +282,15 @@ public class ConsoleAndFileParser {
                             y = Integer.parseInt(nextInput());
                         } catch (NumberFormatException e) {
                             if (inputStatus == 1) {
-                                printIgnoringPrintStatus("Не удалось загрузить объект в связи с неправильным форматом данных в поле вторая координата. Хотите ввести значение вручную?\nДа - Y, нет - N");
-                                if (!reentryAttempt()) return;
-                                continue;
+                                printIgnoringPrintStatus("В файле " + fileNamesStack.peek() + " введены неверные данные для создания объекта");
+                                fileNamesStack.pop();
+                                in = scannerStack.pop();
+                                return;
                             }
-                            println("Неверный формат ввода. Ожидалась десятичная дробь");
+                            println("Неверный формат ввода. Ожидалось целое число");
                             continue;
                         }
                         break;
-                    }
-                    if (inputStatus == 2) {
-                        in = scannerStack.pop();
-                        if (!scannerStack.empty()) {
-                            setInputStatus(1);
-                        } else setInputStatus(0);
                     }
                     String str;
                     Integer price;
@@ -313,20 +302,15 @@ public class ConsoleAndFileParser {
                             else price = Integer.parseInt(str);
                         } catch (NumberFormatException e) {
                             if (inputStatus == 1) {
-                                printIgnoringPrintStatus("Не удалось загрузить объект в связи с неправильным форматом данных в поле стоимость. Хотите ввести значение вручную?\nДа - Y, нет - N");
-                                if (!reentryAttempt()) return;
-                                continue;
+                                printIgnoringPrintStatus("В файле " + fileNamesStack.peek() + " введены неверные данные для создания объекта");
+                                fileNamesStack.pop();
+                                in = scannerStack.pop();
+                                return;
                             }
                             println("Неверный формат ввода. Ожидалось целое число");
                             continue;
                         }
                         break;
-                    }
-                    if (inputStatus == 2) {
-                        in = scannerStack.pop();
-                        if (!scannerStack.empty()) {
-                            setInputStatus(1);
-                        } else setInputStatus(0);
                     }
                     String strType;
                     while (true) {
@@ -334,17 +318,12 @@ public class ConsoleAndFileParser {
                         strType = nextInput();
                         if (validTicketType(strType)) break;
                         if (inputStatus == 1) {
-                            printIgnoringPrintStatus("Не удалось загрузить объект в связи с неправильным форматом данных в поле тип билета. Хотите ввести значение вручную?\nДа - Y, нет - N");
-                            if (!reentryAttempt()) return;
-                            continue;
+                            printIgnoringPrintStatus("В файле " + fileNamesStack.peek() + " введены неверные данные для создания объекта");
+                            fileNamesStack.pop();
+                            in = scannerStack.pop();
+                            return;
                         }
                         println("Неверный тип");
-                    }
-                    if (inputStatus == 2) {
-                        in = scannerStack.pop();
-                        if (!scannerStack.empty()) {
-                            setInputStatus(1);
-                        } else setInputStatus(0);
                     }
                     TicketType ticketType = TicketType.valueOf(strType);
                     Long capacity;
@@ -356,37 +335,27 @@ public class ConsoleAndFileParser {
                             else capacity = Long.parseLong(str);
                         } catch (NumberFormatException e) {
                             if (inputStatus == 1) {
-                                printIgnoringPrintStatus("Не удалось загрузить объект в связи с неправильным форматом данных в поле вместимость. Хотите ввести значение вручную?\nДа - Y, нет - N");
-                                if (!reentryAttempt()) return;
-                                continue;
+                                printIgnoringPrintStatus("В файле " + fileNamesStack.peek() + " введены неверные данные для создания объекта");
+                                fileNamesStack.pop();
+                                in = scannerStack.pop();
+                                return;
                             }
                             println("Неверный формат ввода. Ожидалось целое число");
                             continue;
                         }
                         break;
                     }
-                    if (inputStatus == 2) {
-                        in = scannerStack.pop();
-                        if (!scannerStack.empty()) {
-                            setInputStatus(1);
-                        } else setInputStatus(0);
-                    }
                     while (true) {
                         print("Введите тип места назначения" + Arrays.toString(VenueType.values()) + ": ");
                         strType = nextInput();
                         if (validVenueType(strType)) break;
                         if (inputStatus == 1) {
-                            printIgnoringPrintStatus("Не удалось загрузить объект в связи с неправильным форматом данных в поле тип места назначения. Хотите ввести значение вручную?\nДа - Y, нет - N");
-                            if (!reentryAttempt()) return;
-                            continue;
+                            printIgnoringPrintStatus("Ошибка при исполнении файла " + fileNamesStack.peek());
+                            fileNamesStack.pop();
+                            in = scannerStack.pop();
+                            return;
                         }
                         println("Неверный тип");
-                    }
-                    if (inputStatus == 2) {
-                        in = scannerStack.pop();
-                        if (!scannerStack.empty()) {
-                            setInputStatus(1);
-                        } else setInputStatus(0);
                     }
                     VenueType venueType = VenueType.valueOf(strType);
                     print("Введите название улицы: ");
@@ -453,27 +422,6 @@ public class ConsoleAndFileParser {
         } catch (NoSuchElementException e) {
             printIgnoringPrintStatus("Исполнение файла " + fileNamesStack.peek() + " прервано в связи с ошибкой при выполнении команды " + command[0]);
         }
-    }
-
-    /**
-     * Используется для организации ввода с консоли при возникновении ошибки некорректного типа данных при вводе из файла при создании объекта
-     *
-     * @return возвращает true если пользователь хочет ввести поле заново (введен Y), false - если нет
-     */
-    private boolean reentryAttempt() {
-        scannerStack.add(in); // добавляем в стек сканер
-        in = new Scanner(System.in); // создаем стандартный сканер
-        setInputStatus(2); // статус для обработки исключений при вводе неправильного типа данных из файла
-        String str = nextInput(); // хочет ли пользователь ввести поле заново
-        if (!str.equalsIgnoreCase("y")) { // возвращаем старый сканер и выходим из файла
-            if (scannerStack.toArray().length > 1) {
-                scannerStack.pop();
-                fileNamesStack.pop();
-            }
-            in = scannerStack.pop();
-            return false;
-        }
-        return true;
     }
 
     /**

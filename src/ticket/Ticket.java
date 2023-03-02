@@ -75,9 +75,9 @@ public class Ticket implements Comparable<Ticket> {
      */
     @Override
     public int compareTo(Ticket t) {
-        int v = this.type.compareTo(t.type) * 5;
+        int v = this.type.compareTo(t.type) * -5;
         v += this.venue.compareTo(t.venue);
-        if (this.price > t.price) v++;
+        if (this.price > t.price) v += 2;
         else if (this.price < t.price) v--;
         return v;
     }

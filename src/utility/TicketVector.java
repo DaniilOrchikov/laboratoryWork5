@@ -94,8 +94,9 @@ public class TicketVector {
      * @return возвращает true, если удалось добавить объект, false - если нет
      */
     public boolean addIfMax(Ticket ticket) {
-        if (maxTicket() == null) return add(ticket);
-        if (ticket.compareTo(maxTicket()) > 0) return add(ticket);
+        Ticket maxT = maxTicket();
+        if (maxT == null) return add(ticket);
+        if (ticket.compareTo(maxT) > 0) return add(ticket);
         return false;
     }
 
@@ -106,8 +107,9 @@ public class TicketVector {
      * @return возвращает true, если удалось добавить объект, false - если нет
      */
     public boolean addIfMin(Ticket ticket) {
-        if (minTicket() == null) return add(ticket);
-        if (ticket.compareTo(minTicket()) < 0) return add(ticket);
+        Ticket minT = minTicket();
+        if (minT == null) return add(ticket);
+        if (ticket.compareTo(minT) < 0) return add(ticket);
         return false;
     }
 
@@ -173,7 +175,9 @@ public class TicketVector {
      * @see Ticket#toString
      */
     public String print() {
-        return tv.toString();
+        StringBuilder str = new StringBuilder();
+        for (Ticket t:tv) str.append(t).append("\n");
+        return str.toString();
     }
 
     /**
