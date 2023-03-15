@@ -13,10 +13,12 @@ import java.nio.file.AccessDeniedException;
 import java.nio.file.Paths;
 import java.util.*;
 
+import static java.lang.Thread.sleep;
+
 /**
  * Класс для чтения данных из консоли или файла и парсинг этих данных в команды. Также для вывода данных на стандартный поток вывода. Поля <b>in</b>, <b>scannerStack</b>, <b>fileNamesStack</b>, <b>ex</b>
  */
-public class ConsoleAndFileParser {
+public class Client {
     /**
      * Поле сканер ввода.
      * По умолчанию - системный ввод
@@ -42,12 +44,12 @@ public class ConsoleAndFileParser {
     private final TicketBuilder tb = new TicketBuilder();
     private SocketChannel sock;
 
-    public ConsoleAndFileParser(ConsoleWriter cw) throws IOException {
+    public Client(ConsoleWriter cw) throws IOException {
         this.cw = cw;
     }
 
     /**
-     * Цикл считывания команд с помощью {@link ConsoleAndFileParser}. Цикл завершается, если {@link Executor#exit} == true или если введен символ конца ввода
+     * Цикл считывания команд с помощью {@link Client}. Цикл завершается, если {@link Server#exit} == true или если введен символ конца ввода
      */
     public void readingCycle() throws IOException {
         while (true) {
@@ -57,7 +59,7 @@ public class ConsoleAndFileParser {
     }
 
     /**
-     * Проверяет не закончился ли считываемый файл. Если да - достает следующий сканер из {@link ConsoleAndFileParser#scannerStack}.
+     * Проверяет не закончился ли считываемый файл. Если да - достает следующий сканер из {@link Client#scannerStack}.
      * Если из стека достали последний сканер (ввод с консоли) устанавливает {@link ConsoleWriter#inputStatus} 0
      */
     private void checkingScanner() {
@@ -86,7 +88,7 @@ public class ConsoleAndFileParser {
         return nextInput().split(" ");
     }
 
-    public void exit() throws IOException {
+    public void exit() {
         System.exit(0);
     }
 
@@ -105,7 +107,7 @@ public class ConsoleAndFileParser {
         return str;
     }
 
-    private void emergencyExit() throws IOException {
+    private void emergencyExit() {
         cw.printIgnoringPrintStatus("Экстренный выход");
         exit();
     }
@@ -113,9 +115,9 @@ public class ConsoleAndFileParser {
     /**
      * Выборка команды.
      * Если команда не требует обращения к коллекции - исполнение команды.
-     * Если команда не требует ввод объекта - команда передается Исполнителю {@link Executor}({@link Executor#commandExecution}).
+     * Если команда не требует ввод объекта - команда передается Исполнителю {@link Server}({@link Server#commandExecution}).
      * Если команда требует ввода объекта - просит ввести поля и создает объект с помощью {@link TicketBuilder}
-     * Далее передает данные и команду {@link Executor}({@link Executor#commandExecutionWithElement})
+     * Далее передает данные и команду {@link Server}({@link Server#commandExecutionWithElement})
      *
      * @param command массив строк (команда, которую необходимо исполнить и, при необходимости, параметры)
      */
@@ -147,20 +149,23 @@ public class ConsoleAndFileParser {
                     if (!enteringField("street")) return;
                     cw.println("Введите почтовый индекс: ");
                     if (!enteringField("zip")) return;
-//                    try {
-//                        ObjectOutputStream oos = new ObjectOutputStream(client.socket().getOutputStream());
-//                        if (command[0].equals("update"))
-//                            oos.writeObject(new Command(command, tb.getTicket(Long.parseLong(command[1]))));
-//                        else oos.writeObject(new Command(command, tb.getTicket()));
-//                        ObjectInputStream ois = new ObjectInputStream(client.socket().getInputStream());
-//                        Answer answer = (Answer) ois.readObject();
-//                        cw.println(answer.text());
-//                    } catch (ConnectException e) {
-//                        cw.printIgnoringPrintStatus("Сервер не отвечает");
-//                        if (cw.getInputStatus() != 0) return;
-//                    } catch (ClassNotFoundException e) {
-//                        throw new RuntimeException(e);
-//                    }
+                    try {
+                        sock = SocketChannel.open(new InetSocketAddress(5454));
+                        sock.configureBlocking(false);
+                        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                        ObjectOutputStream oos = new ObjectOutputStream(baos);
+                        if (command[0].equals("update"))
+                            oos.writeObject(new Command(command, tb.getTicket(Long.parseLong(command[1]))));
+                        else oos.writeObject(new Command(command, tb.getTicket()));
+                        communicatingWithServer(baos, oos);
+                    } catch (ConnectException e) {
+                        cw.printIgnoringPrintStatus("Сервер не отвечает");
+                        if (cw.getInputStatus() != 0) return;
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    } catch (ClassNotFoundException | InterruptedException e) {
+                        throw new RuntimeException(e);
+                    }
                     break;
                 case ("info"):
                 case ("show"):
@@ -175,27 +180,18 @@ public class ConsoleAndFileParser {
                 case ("count_greater_than_type"):
                 case ("print_field_ascending_type"):
                     try {
-                        sock = SocketChannel.open(new InetSocketAddress("localhost", 5454));
+                        sock = SocketChannel.open(new InetSocketAddress(5454));
                         sock.configureBlocking(false);
                         ByteArrayOutputStream baos = new ByteArrayOutputStream();
                         ObjectOutputStream oos = new ObjectOutputStream(baos);
-                        oos.writeObject(new Command(new String[]{"show", ""}));
-                        oos.close();
-                        byte[] arr = baos.toByteArray();
-                        ByteBuffer buf = ByteBuffer.wrap(arr);
-                        sock.write(buf);
-                        buf.clear();
-                        sock.read(buf);
-                        ObjectInputStream ois = new ObjectInputStream(new ByteArrayInputStream(buf.array()));
-                        Answer answer = (Answer) ois.readObject();
-                        cw.printIgnoringPrintStatus(answer.text());
-                        ois.close();
+                        oos.writeObject(new Command(command));
+                        communicatingWithServer(baos, oos);
                     } catch (ConnectException e) {
                         cw.printIgnoringPrintStatus("Сервер не отвечает");
                         if (cw.getInputStatus() != 0) return;
                     } catch (IOException e) {
                         e.printStackTrace();
-                    } catch (ClassNotFoundException e) {
+                    } catch (ClassNotFoundException | InterruptedException e) {
                         throw new RuntimeException(e);
                     }
                     break;
@@ -245,6 +241,29 @@ public class ConsoleAndFileParser {
         }
     }
 
+    private void communicatingWithServer(ByteArrayOutputStream baos, ObjectOutputStream oos) throws IOException, InterruptedException, ClassNotFoundException {
+        try {
+            oos.close();
+            byte[] arr = baos.toByteArray();
+            ByteBuffer buf = ByteBuffer.wrap(arr);
+            sock.write(buf);
+            buf.clear();
+            byte[] buffer = new byte[8192];
+            ByteBuffer buff = ByteBuffer.wrap(buffer);
+            sleep(100);
+            sock.read(buff);
+            ObjectInputStream ois = new ObjectInputStream(new ByteArrayInputStream(buff.array()));
+            Answer answer = (Answer) ois.readObject();
+            String answerText = answer.text();
+            if (answer.systemInformation()) cw.println(answerText);
+            else cw.printIgnoringPrintStatus(answerText);
+            ois.close();
+            sock.close();
+        } catch (StreamCorruptedException e) {
+            cw.printIgnoringPrintStatus("Не удалось получить ответ от сервера");
+        }
+    }
+
     /**
      * Проверка аргументов команд с аргументами на соответствие требованиям типов данных, валидности id и т.д.
      *
@@ -256,11 +275,7 @@ public class ConsoleAndFileParser {
             case ("update"):
             case ("remove_by_id"):
                 try {
-                    long id = Long.parseLong(command[1]);
-//                    if (!ex.validId(id)) {
-//                        cw.println("Неверный id");
-//                        return false;
-//                    }
+                    Long.parseLong(command[1]);
                 } catch (NumberFormatException e) {
                     cw.println("Неверный формат id");
                     return false;

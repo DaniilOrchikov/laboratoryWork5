@@ -108,14 +108,14 @@ public class TicketBuilder {
     }
 
     public String setVenueCapacity(String strVenueCapacity) {
-        Long venueCapacity;
+        long venueCapacity;
         if (strVenueCapacity.equals("")) return "Строка не может быть пустой";
         try {
             venueCapacity = Long.parseLong(strVenueCapacity);
         } catch (NumberFormatException e) {
             return "Ожидалось целое число типа long";
         }
-        if (price <= 0) return "Поле должно быть больше нуля";
+        if (venueCapacity <= 0) return "Поле должно быть больше нуля";
         this.venueCapacity = venueCapacity;
         return "OK";
     }

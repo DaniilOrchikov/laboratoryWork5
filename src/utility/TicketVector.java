@@ -44,10 +44,10 @@ public class TicketVector {
      * @return возврящает true если удалось добавить объект, false - если нет
      */
     public boolean add(Ticket ticket) {
-        if (ticket.getId() != null)this.id = Math.max(this.id, ticket.getId() + 1);
+        if (ticket.getId() != null) this.id = Math.max(this.id + 1, ticket.getId() + 1);
         else {
             ticket.setId(id);
-            id ++;
+            id++;
         }
         if (tv.stream().anyMatch(t -> (t.getId() == ticket.getId() || t.getVenue().getId() == ticket.getVenue().getId())))
             return false;
@@ -151,7 +151,8 @@ public class TicketVector {
      * @return возвращает минимальный элемент коллекции в строковом представлении. Сравнение ведется по полю venue {@link Venue#compareTo}
      */
     public String getMinByVenue() {
-        return tv.stream().min(Comparator.comparing(Ticket::getVenue)).toString();
+        Optional<Ticket> t = tv.stream().min(Comparator.comparing(Ticket::getVenue));
+        return t.isPresent() ? t.get().toString() : "Массив пустой";
     }
 
     /**

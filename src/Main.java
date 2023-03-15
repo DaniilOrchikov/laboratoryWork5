@@ -1,17 +1,38 @@
-import utility.ConsoleAndFileParser;
+import utility.CSVReaderAndWriter;
+import utility.Client;
 import utility.ConsoleWriter;
 
 import java.io.IOException;
 
 public class Main {
-    public static void main(String[] args) {
-        try {
+    public static void main(String[] args) throws IOException, ClassNotFoundException {
+//        if (args[0].equals("server")) {
+            CSVReaderAndWriter csvRW = new CSVReaderAndWriter();
+//            if (args.length > 1)
+//                csvRW.setFile(args[1]);
             ConsoleWriter cw = new ConsoleWriter();
-            ConsoleAndFileParser cr = new ConsoleAndFileParser(cw);
-            cr.readingCycle();
-        }
-        catch (IOException e){
-            e.printStackTrace();
-        }
+            utility.Server ex = new utility.Server(csvRW, cw);
+            ex.createTQFromCSV();
+            ex.acceptingConnections();
+//        if (args.length > 0) {
+//            if (args[0].equals("server")) {
+//                CSVReaderAndWriter csvRW = new CSVReaderAndWriter();
+//                if (args.length > 1)
+//                    csvRW.setFile(args[1]);
+//                ConsoleWriter cw = new ConsoleWriter();
+//                utility.Server ex = new utility.Server(csvRW, cw);
+//                ex.createTQFromCSV();
+//                ex.acceptingConnections();
+//            }
+//        }
+//        else {
+//            try {
+//                ConsoleWriter cw = new ConsoleWriter();
+//                Client cr = new Client(cw);
+//                cr.readingCycle();
+//            } catch (IOException e) {
+//                e.printStackTrace();
+//            }
+//        }
     }
 }

@@ -4,71 +4,71 @@ import ticket.Ticket;
 import ticket.TicketType;
 
 import java.io.*;
-import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.nio.channels.SelectionKey;
-import java.nio.channels.Selector;
-import java.nio.channels.ServerSocketChannel;
-import java.nio.channels.SocketChannel;
+import java.net.SocketTimeoutException;
 import java.util.*;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 /**
- * Класс исполняющий команды, которые требуют обратиться к коллекции ({@link TicketVector}), управляющий работой {@link ConsoleAndFileParser} и {@link CSVReaderAndWriter}.
+ * Класс исполняющий команды, которые требуют обратиться к коллекции ({@link TicketVector}), управляющий работой {@link Client} и {@link CSVReaderAndWriter}.
  * Поля - <b>exit</b>, <b>tv</b>, <b>cr</b> и <b>csvRW</b>
  */
-public class Executor {
+public class Server {
     /**
      * Поле {@link TicketVector}
      */
     private final TicketVector tv = new TicketVector();
     /**
-     * Поле {@link ConsoleAndFileParser}
-     */
-    /**
      * Поле {@link CSVReaderAndWriter}
      */
     private final CSVReaderAndWriter csvRW;
     private final ConsoleWriter cw;
-    private ServerSocket serv;
+    private final ServerSocket serv;
 
 
-    public Executor(CSVReaderAndWriter csvRW, ConsoleWriter cw) throws IOException {
+    public Server(CSVReaderAndWriter csvRW, ConsoleWriter cw) throws IOException {
         this.csvRW = csvRW;
         this.cw = cw;
         serv = new ServerSocket(5454);
+        serv.setSoTimeout(200);
     }
 
     public void acceptingConnections() throws IOException, ClassNotFoundException {
         while (true) {
-            Socket sock = serv.accept();
-            ObjectInputStream ois = new ObjectInputStream(sock.getInputStream());
-            Command command = (Command) ois.readObject();
-            Answer answer;
-            if (command.hasTicket) answer = commandExecutionWithElement(command);
-            else answer = commandExecution(command);
-            ObjectOutputStream oos = new ObjectOutputStream(sock.getOutputStream());
-            oos.writeObject(answer);
+            try {
+                Socket sock = serv.accept();
+                ObjectInputStream ois = new ObjectInputStream(sock.getInputStream());
+                Command command = (Command) ois.readObject();
+                Answer answer;
+                if (command.hasTicket) answer = commandExecutionWithElement(command);
+                else answer = commandExecution(command);
+                ObjectOutputStream oos = new ObjectOutputStream(sock.getOutputStream());
+                oos.writeObject(answer);
+            } catch (SocketTimeoutException e) {
+                if (System.in.available() > 0) {
+                    try {
+                        Scanner in = new Scanner(System.in);
+                        switch (in.next()) {
+                            case ("save"):
+                                if (csvRW.writeToCSV(tv.getAll())) System.out.println("Сохранение прошло успешно");
+                                else System.out.println("Не удалось сохранить данные в связи с ошибкой записи в файл");
+                                break;
+                            case ("exit"):
+                                if (csvRW.writeToCSV(tv.getAll())) System.out.println("Сохранение прошло успешно");
+                                else System.out.println("Не удалось сохранить данные в связи с ошибкой записи в файл");
+                                serv.close();
+                                System.exit(0);
+                        }
+                    } catch (NoSuchElementException err) {
+                        System.out.println("Экстренный выход без сохранения");
+                    }
+                    serv.close();
+                    System.exit(0);
+                }
+            }
         }
-    }
-
-    private void answer(SelectionKey key)
-            throws IOException, ClassNotFoundException {
-        SocketChannel client = (SocketChannel) key.channel();
-        ObjectInputStream ois = new ObjectInputStream(client.socket().getInputStream());
-        Command command = (Command) ois.readObject();
-        Answer answer;
-        if (command.hasTicket) answer = commandExecutionWithElement(command);
-        else answer = commandExecution(command);
-        ObjectOutputStream oos = new ObjectOutputStream(client.socket().getOutputStream());
-        oos.writeObject(answer);
-    }
-
-    private void register(Selector selector, ServerSocketChannel serverSocket)
-            throws IOException {
-        SocketChannel client = serverSocket.accept();
-        client.configureBlocking(false);
-        client.register(selector, SelectionKey.OP_READ);
     }
 
     /**
@@ -90,13 +90,6 @@ public class Executor {
             cw.println("Объектов не добавлено по причине несоответствия структуре - " + invalidTicket);
     }
 
-//    /**
-//     * Мгновенный выход из программы
-//     */
-//    public void exit() {
-//        System.exit(0);
-//    }
-
     /**
      * Исполнение команд не требующих создания объекта класса {@link Ticket}.<br>
      * Команды - <b>show</b>, <b>clear</b>, <b>remove_first</b>, <b>remove_at</b>, <b>remove_by_id</b>, <b>min_by_venue</b>, <b>filter_contains_name</b>, <b>filter_less_than_price</b>, <b>filter_by_price</b>, <b>save</b>, <b>info</b>, <b>count_greater_than_type</b>, <b>print_field_ascending_type</b>
@@ -108,57 +101,53 @@ public class Executor {
             case ("show"):
                 StringBuilder str = new StringBuilder();
                 tv.getAll().stream().forEach(t -> str.append(t).append("\n"));
-                return new Answer(str.toString());
+                return new Answer(str.toString(), false);
             case ("clear"):
                 tv.clear();
-                cw.println("Коллекция очищена");
-                return new Answer("Коллекция очищена");
+                return new Answer("Коллекция очищена", true);
             case ("remove_first"):
                 if (tv.remove(0))
-                    return new Answer("Первый элемент удален");
+                    return new Answer("Первый элемент удален", true);
                 else
-                    return new Answer("Массив пустой");
+                    return new Answer("Массив пустой", false);
             case ("remove_at"):
                 if (tv.remove(Integer.parseInt(command.getCommand()[1])))
-                    return new Answer("Элемент под индексом " + command.getCommand()[1] + " удален");
+                    return new Answer("Элемент под индексом " + command.getCommand()[1] + " удален", true);
                 else
-                    return new Answer("Индекс выходит за границы массива");
+                    return new Answer("Индекс выходит за границы массива", false);
             case ("remove_by_id"):
                 long id = Long.parseLong(command.getCommand()[1]);
                 if (!tv.validId(id))
-                    return new Answer("Неверный id");
+                    return new Answer("Неверный id", false);
                 tv.removeById(id);
-                return new Answer(String.format("Элемент с id %s удален", id));
+                return new Answer(String.format("Элемент с id %s удален", id), true);
             case ("min_by_venue"):
-                return new Answer(tv.getMinByVenue());
+                return new Answer(tv.getMinByVenue(), false);
             case ("filter_contains_name"):
                 StringBuilder sb = new StringBuilder();
                 String name;
                 if (command.getCommand().length > 1) name = command.getCommand()[1];
                 else name = "";
                 for (Ticket t : tv.filterContainsName(name)) sb.append(t.toString());
-                return new Answer(sb.toString());
+                return new Answer(sb.toString(), false);
             case ("filter_less_than_price"):
                 sb = new StringBuilder();
                 int price = Integer.parseInt(command.getCommand()[1]);
                 for (Ticket t : tv.filterLessThanPrice(price)) sb.append(t.toString());
-                return new Answer(sb.toString());
+                return new Answer(sb.toString(), false);
             case ("filter_by_price"):
                 sb = new StringBuilder();
                 price = Integer.parseInt(command.getCommand()[1]);
                 for (Ticket t : tv.filterByPrice(price)) cw.printIgnoringPrintStatus(t.toString());
-                return new Answer(sb.toString());
-            case ("save"):
-                if (csvRW.writeToCSV(tv.getAll())) return new Answer("Сохранение прошло успешно");
-                else return new Answer("Не удалось сохранить данные в связи с ошибкой записи в файл");
+                return new Answer(sb.toString(), false);
             case ("info"):
-                return new Answer(tv.getInfo());
+                return new Answer(tv.getInfo(), false);
             case ("count_greater_than_type"):
-                return new Answer(String.valueOf(tv.getCountGreaterThanType(TicketType.valueOf(command.getCommand()[1]))));
+                return new Answer(String.valueOf(tv.getCountGreaterThanType(TicketType.valueOf(command.getCommand()[1]))), false);
             case ("print_field_ascending_type"):
-                return new Answer(tv.getFieldAscendingType());
+                return new Answer(tv.getFieldAscendingType(), false);
         }
-        return new Answer("error");
+        return new Answer("error", true);
     }
 
     /**
@@ -171,22 +160,23 @@ public class Executor {
     public Answer commandExecutionWithElement(Command command) {
         switch (command.getCommand()[0]) {
             case ("add"):
-                if (tv.add(command.getTicket())) return new Answer("Объект добавлен");
-                else return new Answer("Объект не добавлен. Неоригинальный id");
+                if (tv.add(command.getTicket())) return new Answer("Объект добавлен", true);
+                else return new Answer("Объект не добавлен. Неоригинальный id", false);
             case ("update"):
                 long id = Long.parseLong(command.getCommand()[1]);
+                if (!tv.validId(id)) return new Answer("Неверный id", false);
                 tv.update(command.getTicket(), id);
-                return new Answer("Объект обновлен");
+                return new Answer("Объект обновлен", true);
             case ("add_if_max"):
-                if (tv.addIfMax(command.getTicket())) return new Answer("Объект добавлен");
-                else return new Answer("Объект не добавлен");
+                if (tv.addIfMax(command.getTicket())) return new Answer("Объект добавлен", true);
+                else return new Answer("Объект не добавлен", false);
             case ("add_if_min"):
-                if (tv.addIfMin(command.getTicket())) return new Answer("Объект добавлен");
-                else return new Answer("Объект не добавлен");
+                if (tv.addIfMin(command.getTicket())) return new Answer("Объект добавлен", true);
+                else return new Answer("Объект не добавлен", false);
             case ("remove_lower"):
-                return new Answer("Удалено " + tv.removeLower(command.getTicket()) + " элементов");
+                return new Answer("Удалено " + tv.removeLower(command.getTicket()) + " элементов", false);
         }
-        return new Answer("error");
+        return new Answer("error", false);
     }
 
 
